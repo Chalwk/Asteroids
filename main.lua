@@ -4,6 +4,7 @@
 
 local math_sqrt = math.sqrt
 local math_max = math.max
+local string_format = string.format
 local table_insert = table.insert
 local table_remove = table.remove
 
