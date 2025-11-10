@@ -1,0 +1,7 @@
+{
+  "diagnostics.globals": [
+    "love",
+        "screenHeight",
+        "screenWidth"
+  ]
+}
