@@ -66,6 +66,35 @@ local function initButton(button, x, y, section)
     return button
 end
 
+local function drawButton(self, button)
+    local isHovered = self.buttonHover == button.action
+    local pulse = sin(self.time * 6) * 0.1 + 0.9
+
+    -- Metallic background with glow
+    local glow = isHovered and 0.25 or 0.1
+    lg.setColor(button.color[1] + glow, button.color[2] + glow, button.color[3] + glow, 0.9)
+    lg.rectangle("fill", button.x, button.y, button.width, button.height, 12)
+
+    -- Border highlight
+    lg.setColor(1, 0.7, 0.2, isHovered and 1 or 0.6)
+    lg.setLineWidth(isHovered and 3 or 2)
+    lg.rectangle("line", button.x, button.y, button.width, button.height, 12)
+
+    -- Text
+    local font = self.fonts:getFont("mediumFont")
+    self.fonts:setFont(font)
+    local textWidth = font:getWidth(button.text)
+    local textHeight = font:getHeight()
+    local textX = button.x + (button.width - textWidth) * 0.5
+    local textY = button.y + (button.height - textHeight) * 0.5
+
+    lg.setColor(0, 0, 0, 0.5)
+    lg.print(button.text, textX + 2, textY + 2)
+    lg.setColor(1, 1, 1, pulse)
+    lg.print(button.text, textX, textY)
+    lg.setLineWidth(1)
+end
+
 local function createPauseButtons(self)
     local centerX, centerY = screenWidth * 0.5, screenHeight * 0.5
     self.pauseButtons = {}
@@ -92,45 +121,16 @@ local function updatePauseButtonPositions(self)
 end
 
 local function drawPauseMenu(self)
-    -- Semi-transparent overlay
     lg.setColor(0, 0, 0, 0.7)
     lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
 
-    -- Title
-    lg.setColor(1, 1, 1)
+    lg.setColor(1, 1, 1, 1)
     self.fonts:setFont("largeFont")
     lg.printf("PAUSED", 0, screenHeight * 0.3, screenWidth, "center")
 
-    -- Buttons
     for _, button in ipairs(self.pauseButtons) do
-        local isHovered = self.buttonHover == button.action
-        local r, g, b = unpack(button.color)
-
-        -- Button background
-        lg.setColor(r, g, b, isHovered and 0.96 or 0.78)
-        lg.rectangle("fill", button.x, button.y, button.width, button.height, 10)
-
-        -- Button border
-        lg.setColor(1, 1, 1, isHovered and 0.98 or 0.82)
-        lg.setLineWidth(isHovered and 3 or 2)
-        lg.rectangle("line", button.x, button.y, button.width, button.height, 10)
-
-        -- Inner glow when hovered
-        if isHovered then
-            lg.setBlendMode("add")
-            lg.setColor(r, g, b, 0.06)
-            lg.rectangle("fill", button.x + 6, button.y + 6, button.width - 12, button.height - 12, 8)
-            lg.setBlendMode("alpha")
-        end
-
-        -- Button text
-        lg.setColor(1, 1, 1)
-        self.fonts:setFont("mediumFont")
-        local textWidth = self.fonts:getFont("mediumFont"):getWidth(button.text)
-        local textHeight = self.fonts:getFont("mediumFont"):getHeight()
-        lg.print(button.text, button.x + (button.width - textWidth) * 0.5, button.y + (button.height - textHeight) * 0.5)
+        drawButton(self, button)
     end
-    lg.setLineWidth(1)
 end
 
 local function updateOptionsButtonPositions(self)
@@ -215,35 +215,6 @@ local function createOptionsButtons(self)
     end
 
     updateOptionsButtonPositions(self)
-end
-
-local function drawButton(self, button)
-    local isHovered = self.buttonHover == button.action
-    local pulse = sin(self.time * 6) * 0.1 + 0.9
-
-    -- Metallic background with glow
-    local glow = isHovered and 0.25 or 0.1
-    lg.setColor(button.color[1] + glow, button.color[2] + glow, button.color[3] + glow, 0.9)
-    lg.rectangle("fill", button.x, button.y, button.width, button.height, 12)
-
-    -- Border highlight
-    lg.setColor(1, 0.7, 0.2, isHovered and 1 or 0.6)
-    lg.setLineWidth(isHovered and 3 or 2)
-    lg.rectangle("line", button.x, button.y, button.width, button.height, 12)
-
-    -- Text
-    local font = self.fonts:getFont("mediumFont")
-    self.fonts:setFont(font)
-    local textWidth = font:getWidth(button.text)
-    local textHeight = font:getHeight()
-    local textX = button.x + (button.width - textWidth) * 0.5
-    local textY = button.y + (button.height - textHeight) * 0.5
-
-    lg.setColor(0, 0, 0, 0.5)
-    lg.print(button.text, textX + 2, textY + 2)
-    lg.setColor(1, 1, 1, pulse)
-    lg.print(button.text, textX, textY)
-    lg.setLineWidth(1)
 end
 
 local function drawHelpButton(self)
