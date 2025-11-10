@@ -38,6 +38,8 @@ local function createPlayer(self)
         boostCooldown = 0,
         invulnerable = 0,
         lives = 3,
+        health = 100,
+        maxHealth = 100,
         score = 0,
         shootCooldown = 0
     }
@@ -124,12 +126,11 @@ local function updatePauseButtonHover(self, x, y)
 end
 
 local function drawUI(self, time)
-    -- HUD background
     lg.push()
     lg.setColor(0, 0, 0, 0.35)
-    lg.rectangle("fill", 12, 12, 310, 130, 8)
+    lg.rectangle("fill", 12, 12, 310, 170, 8)
     lg.setColor(1, 1, 1, 0.06)
-    lg.rectangle("line", 12, 12, 310, 130, 8)
+    lg.rectangle("line", 12, 12, 310, 170, 8)
     lg.pop()
 
     -- Score
@@ -153,13 +154,51 @@ local function drawUI(self, time)
         lg.pop()
     end
 
-    -- Boost meter with glowing bar
+    -- Health bar
+    local healthPercent = self.player.health / self.player.maxHealth
+    local healthX, healthY, healthW, healthH = 24, 115, 240, 12
+
+    -- Health bar background
+    lg.setColor(0.12, 0.12, 0.18, 0.6)
+    lg.rectangle("fill", healthX, healthY, healthW, healthH, 6)
+
+    -- Health bar fill with color based on health percentage
+    local r, g
+    if healthPercent > 0.6 then
+        r = 0.2
+        g = 0.8
+    elseif healthPercent > 0.3 then
+        r = 0.8
+        g = 0.8
+    else
+        r = 0.8
+        g = 0.2
+    end
+
+    lg.setBlendMode("add")
+    lg.setColor(r, g, 0.2, 0.8)
+    lg.rectangle("fill", healthX, healthY, healthW * healthPercent, healthH, 6)
+
+    -- Health bar glow effect
+    lg.setColor(r, g, 0.2, 0.12 + 0.12 * sin(time * 6))
+    lg.rectangle("fill", healthX - 4, healthY - 6, (healthW * healthPercent) + 8, healthH + 12, 8)
+    lg.setBlendMode("alpha")
+
+    -- Health text
+    lg.setColor(1, 1, 1, 0.85)
+    self.fonts:setFont("smallFont")
+    lg.print("HEALTH", healthX + healthW + 8, healthY - 2)
+
+    -- Health value text
+    lg.print(math.floor(self.player.health) .. "/" .. self.player.maxHealth, healthX, healthY + healthH + 2)
+
+    -- Boost meter
     local boostPercent = self.player.boostTime / self.player.maxBoostTime
-    local boostX, boostY, boostW, boostH = 24, 120, 240, 12
+    local boostX, boostY, boostW, boostH = 24, 165, 240, 12  -- Moved from 120 to 145
 
     lg.setColor(0.12, 0.12, 0.18, 0.6)
     lg.rectangle("fill", boostX, boostY, boostW, boostH, 6)
-    lg.setBlendMode("add", "premultiplied")
+    lg.setBlendMode("add")
     lg.setColor(0.12, 0.6, 1, 0.8)
     lg.rectangle("fill", boostX, boostY, boostW * boostPercent, boostH, 6)
     -- soft glow overlay
@@ -452,9 +491,19 @@ function Game:update(dt)
 
     -- Update asteroids using asteroid manager
     local asteroidCollision = asteroidManager:update(dt, p)
-    if asteroidCollision and p.lives <= 0 then
-        self.gameOver = true
-        self.won = false
+    if asteroidCollision and p.invulnerable <= 0 then
+        p.health = p.health - 25  -- Reduce health instead of lives
+        p.invulnerable = 2
+
+        if p.health <= 0 then
+            p.lives = p.lives - 1
+            p.health = p.maxHealth  -- Reset health when losing a life
+        end
+
+        if p.lives <= 0 then
+            self.gameOver = true
+            self.won = false
+        end
     end
 
     -- Update powerups
@@ -464,9 +513,19 @@ function Game:update(dt)
     enemy:update(dt, p, bulletManager)
 
     -- Check enemy collision with player
-    if enemy:checkPlayerCollision(p) and p.lives <= 0 then
-        self.gameOver = true
-        self.won = false
+    if enemy:checkPlayerCollision(p) and p.invulnerable <= 0 then
+        p.health = p.health - 35  -- Reduce health instead of lives
+        p.invulnerable = 2
+
+        if p.health <= 0 then
+            p.lives = p.lives - 1
+            p.health = p.maxHealth  -- Reset health when losing a life
+        end
+
+        if p.lives <= 0 then
+            self.gameOver = true
+            self.won = false
+        end
     end
 
     -- Check enemy bullet collisions with player
@@ -476,9 +535,14 @@ function Game:update(dt)
             local dx, dy = bullet.x - p.x, bullet.y - p.y
             local distance = math.sqrt(dx * dx + dy * dy)
             if distance < (bullet.size + p.size) then
-                p.lives = p.lives - 1
+                p.health = p.health - 10  -- Reduce health instead of lives
                 p.invulnerable = 2
                 bulletManager:removeBullet(i)
+
+                if p.health <= 0 then
+                    p.lives = p.lives - 1
+                    p.health = p.maxHealth  -- Reset health when losing a life
+                end
 
                 if p.lives <= 0 then
                     self.gameOver = true

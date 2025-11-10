@@ -19,13 +19,13 @@ local function returnToPool(pool, obj)
 end
 
 local function createPowerup(x, y)
-    local types = { "boost", "shield", "rapid" }
+    local types = { "boost", "shield", "rapid", "health" }
     return {
         x = x,
         y = y,
         vx = (random() - 0.5) * 50,
         vy = (random() - 0.5) * 50,
-        type = types[random(1, 3)],
+        type = types[random(1, 4)],
         size = 15,
         rotation = 0,
         life = 10
@@ -83,6 +83,8 @@ function Powerup:update(dt, player)
                 player.invulnerable = 5
             elseif powerup.type == "rapid" then
                 player.shootCooldown = 0.1
+            elseif powerup.type == "health" then
+                player.health = math.min(player.maxHealth, player.health + 50)
             end
             returnToPool(powerupPool, powerup)
             remove(self.powerups, i)
@@ -124,13 +126,30 @@ function Powerup:draw(time)
         elseif powerup.type == "rapid" then
             lg.setBlendMode("add")
             lg.setColor(1, 0.35, 0.35, 0.6)
-            lg.polygon("fill", -powerup.size * 0.5 * pulse, -powerup.size * 0.5 * pulse, powerup.size * 0.5 * pulse, 0,
+            lg.polygon("fill",
                 -powerup.size * 0.5 * pulse,
-                powerup.size * 0.5 * pulse)
+                -powerup.size * 0.5 * pulse, powerup.size * 0.5 * pulse,
+                0,
+                -powerup.size * 0.5 * pulse,
+                powerup.size * 0.5 * pulse
+            )
             lg.setBlendMode("alpha")
             lg.setColor(1, 0.3, 0.3)
             lg.polygon("line", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size * 0.5, 0, -powerup.size * 0.5,
                 powerup.size * 0.5)
+        elseif powerup.type == "health" then
+            lg.setBlendMode("add")
+            lg.setColor(1, 0.2, 0.2, 0.65)
+            lg.circle("fill", 0, 0, powerup.size * 0.8 * pulse)
+            lg.setBlendMode("alpha")
+            lg.setColor(1, 0.3, 0.3)
+            lg.circle("line", 0, 0, powerup.size * 0.8)
+            -- Plus sign inside
+            lg.setColor(1, 1, 1, 0.9)
+            lg.setLineWidth(3)
+            lg.line(-powerup.size * 0.3, 0, powerup.size * 0.3, 0)
+            lg.line(0, -powerup.size * 0.3, 0, powerup.size * 0.3)
+            lg.setLineWidth(1)
         end
 
         lg.setColor(1, 1, 1, 0.9)
