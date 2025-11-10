@@ -6,6 +6,7 @@ local Enemy = require("src.entities.Enemy")
 local Asteroid = require("src.entities.Asteroid")
 local Powerup = require("src.entities.Powerup")
 local Bullet = require("src.entities.Bullet")
+local SoundManager = require("src.managers.SoundManager")
 
 local ipairs = ipairs
 local lg = love.graphics
@@ -18,10 +19,10 @@ Game.__index = Game
 
 local HALF_PI = pi * 0.5
 local TWO_PI = pi * 2
-local PLAYER_SPAWN_X
-local PLAYER_SPAWN_Y
+local PLAYER_SPAWN_X, PLAYER_SPAWN_Y
 
 local asteroidManager, enemy, powerupManager, bulletManager
+local soundManager
 
 local function createPlayer(self)
     self.player = {
@@ -384,9 +385,10 @@ function Game.new(fontManager)
     instance.particles = {}
     instance.waveCooldown = 0
 
+    soundManager = SoundManager.new()
     powerupManager = Powerup.new()
     asteroidManager = Asteroid.new()
-    enemy = Enemy.new(instance.difficulty, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
+    enemy = Enemy.new(instance.difficulty, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, soundManager)
     bulletManager = Bullet.new()
 
     createPlayer(instance)
@@ -502,6 +504,7 @@ function Game:update(dt)
             nil -- not enemy bullet
         )
         p.shootCooldown = 0.2
+        soundManager:play("player_bullet")
     end
 
     -- Update bullets

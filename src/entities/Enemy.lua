@@ -30,7 +30,7 @@ local BEHAVIOR_STATES = {
     AMBUSH = 7    -- Wait and attack from position
 }
 
-function Enemy.new(difficulty, playerSpawnX, playerSpawnY)
+function Enemy.new(difficulty, playerSpawnX, playerSpawnY, soundManager)
     local instance = setmetatable({}, Enemy)
 
     instance.difficulty = difficulty
@@ -40,6 +40,8 @@ function Enemy.new(difficulty, playerSpawnX, playerSpawnY)
     instance.spawnCooldown = 0
     instance.swarmCenter = { x = screenWidth / 2, y = screenHeight / 2 }
     instance.lastSwarmUpdate = 0
+
+    instance.soundManager = soundManager
 
     return instance
 end
@@ -426,6 +428,8 @@ function Enemy:updateShooting(dt, enemy, player, bulletManager)
         -- Fire the bullet
         bulletManager:create(enemy.x, enemy.y, vx, vy, 3, 4, true)
         enemy.shootCooldown = cooldown
+
+        self.soundManager:play("enemy_bullet")
 
         -- Burst fire for higher difficulties
         if self.difficulty == "hard" and random() < 0.3 then

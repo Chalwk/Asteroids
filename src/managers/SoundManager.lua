@@ -10,19 +10,21 @@ SoundManager.__index = SoundManager
 function SoundManager.new()
     local instance = setmetatable({
         sounds = {
-            --sound_name = love.audio.newSource("assets/sounds/sound_name.mp3", "static"),
-            --ambience = love.audio.newSource("assets/sounds/ambience.mp3", "stream")
+            player_bullet = love.audio.newSource("assets/sounds/laser-104024.mp3", "static"),
+            enemy_bullet = love.audio.newSource("assets/sounds/laser-312360.mp3", "static"),
+            ambience = love.audio.newSource("assets/sounds/ambient-soundscapes-004-space-atmosphere-303243.mp3", "stream"),
+            asteroid_explosion = love.audio.newSource("assets/sounds/explosion-312361.mp3", "static")
         }
     }, SoundManager)
 
 
     for name, sound in pairs(instance.sounds) do
-        if not name == "ambience" then
-            sound:setVolume(0.5)
-        else
+        if name == "ambience" then
+            sound:setVolume(0.3)
             sound:setLooping(true)
-            sound:setVolume(0.8)
             sound:play()
+        else
+            sound:setVolume(0.8)
         end
     end
     return instance
