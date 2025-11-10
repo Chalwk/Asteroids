@@ -34,9 +34,8 @@ function love.load()
     lg.setLineStyle("smooth")
 
     fonts = FontManager.new()
-
-    game = Game.new(fonts)
     menu = Menu.new(fonts)
+    game = Game.new(fonts)
     background = BackgroundManager.new()
 end
 
