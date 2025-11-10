@@ -16,8 +16,8 @@ local function initObjects(self)
     for _ = 1, 200 do
         self.objects[#self.objects + 1] = {
             type = "star",
-            x = random(0, 1000),
-            y = random(0, 1000),
+            x = random(0, screenWidth),
+            y = random(0, screenHeight),
             size = random(1, 3),
             alpha = random() * 0.8 + 0.2,
             twinkleSpeed = random(1, 4)
@@ -30,8 +30,8 @@ local function initObjects(self)
         local speed = random(10, 40)
         self.objects[#self.objects + 1] = {
             type = "asteroid",
-            x = random(0, 1000),
-            y = random(0, 1000),
+            x = random(0, screenWidth),
+            y = random(0, screenHeight),
             size = size,
             speedX = (random() - 0.5) * speed,
             speedY = (random() - 0.5) * speed,
@@ -65,13 +65,13 @@ function BackgroundManager:update(dt)
 
             -- Wrap edges
             if obj.x < -50 then
-                obj.x = 1050
-            elseif obj.x > 1050 then
+                obj.x = screenWidth + 50
+            elseif obj.x > screenWidth + 50 then
                 obj.x = -50
             end
             if obj.y < -50 then
-                obj.y = 1050
-            elseif obj.y > 1050 then
+                obj.y = screenHeight + 50
+            elseif obj.y > screenHeight + 50 then
                 obj.y = -50
             end
         end

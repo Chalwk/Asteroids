@@ -2,6 +2,8 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
+local Enemy = require("classes.Enemy")
+
 local lg = love.graphics
 local random = love.math.random
 local insert, remove = table.insert, table.remove
@@ -588,10 +590,10 @@ function Game.new(fontManager)
     instance.asteroids = {}
     instance.bullets = {}
     instance.powerups = {}
-    instance.enemy = {}
     instance.particles = {}
     instance.waveCooldown = 0
-    instance.enemySpawnCooldown = 0
+
+    instance.enemy = Enemy.new(instance.difficulty, screenWidth, screenHeight, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
 
     createPlayer(instance)
     createStarField(instance)
@@ -629,12 +631,13 @@ function Game:startNewGame(difficulty)
     for _, obj in ipairs(self.asteroids) do returnToPool(asteroidPool, obj) end
     for _, obj in ipairs(self.bullets) do returnToPool(bulletPool, obj) end
     for _, obj in ipairs(self.powerups) do returnToPool(powerupPool, obj) end
-    for _, obj in ipairs(self.enemy) do returnToPool(enemyPool, obj) end
+
+    self.enemy:reset()
+    self.enemy.difficulty = self.difficulty
 
     self.asteroids = {}
     self.bullets = {}
     self.powerups = {}
-    self.enemy = {}
     self.particles = {}
 
     createPlayer(self)
@@ -771,95 +774,16 @@ function Game:update(dt)
         end
     end
 
-    -- Update enemy
-    self.enemySpawnCooldown = self.enemySpawnCooldown - dt
-    if self.enemySpawnCooldown <= 0 then
-        local enemy = getFromPool(enemyPool)
-        local newenemy = createenemy(self)
-        for k, v in pairs(newenemy) do enemy[k] = v end
-        insert(self.enemy, enemy)
+    -- Update enemy using the Enemy module
+    self.enemy:update(dt, p, self.bullets, self.powerups, bulletPool, powerupPool)
 
-        self.enemySpawnCooldown = 15 - (self.difficulty == "easy" and 5 or self.difficulty == "medium" and 2 or 0)
+    -- Check enemy collision with player
+    if self.enemy:checkPlayerCollision(p) and p.lives <= 0 then
+        self.gameOver = true
+        self.won = false
     end
 
-    for i = #self.enemy, 1, -1 do
-        local e = self.enemy[i]
-
-        -- Movement
-        local dx, dy = p.x - e.x, p.y - e.y
-        local dist = (dx * dx + dy * dy) ^ 0.5
-        if dist > 0 then
-            e.vx = (dx / dist) * e.speed
-            e.vy = (dy / dist) * e.speed
-        end
-
-        e.x = e.x + e.vx * dt
-        e.y = e.y + e.vy * dt
-        e.rotation = atan2(e.vy, e.vx) + HALF_PI
-
-        -- Shooting
-        e.shootCooldown = e.shootCooldown - dt
-        if e.shootCooldown <= 0 then
-            local bullet = getFromPool(bulletPool)
-            bullet.x = e.x
-            bullet.y = e.y
-
-            -- Calculate direction towards player
-            local px, py = self.player.x - e.x, self.player.y - e.y
-            local pdist = math.sqrt(px * px + py * py)
-            if pdist > 0 then
-                bullet.vx = (px / pdist) * 400
-                bullet.vy = (py / pdist) * 400
-            else
-                bullet.vx = 0
-                bullet.vy = 400
-            end
-
-            bullet.life = 3
-            bullet.size = 4
-            bullet.enemy = true
-
-            insert(self.bullets, bullet)
-            e.shootCooldown = 1.5 - (self.difficulty == "hard" and 0.5 or 0)
-        end
-
-        -- Check collisions
-        for j = #self.bullets, 1, -1 do
-            local bullet = self.bullets[j]
-            if not bullet.enemy and checkCollision(e, bullet) then
-                e.health = e.health - 1
-                returnToPool(bulletPool, bullet)
-                remove(self.bullets, j)
-
-                if e.health <= 0 then
-                    p.score = p.score + 200
-                    if random() < 0.3 then
-                        local powerup = getFromPool(powerupPool)
-                        local newPowerup = createPowerup(e.x, e.y)
-                        for k, v in pairs(newPowerup) do powerup[k] = v end
-                        insert(self.powerups, powerup)
-                    end
-                    returnToPool(enemyPool, e)
-                    remove(self.enemy, i)
-                    break
-                end
-            end
-        end
-
-        if p.invulnerable <= 0 and checkCollision(p, e) then
-            p.lives = p.lives - 1
-            p.invulnerable = 2
-            returnToPool(enemyPool, e)
-            remove(self.enemy, i)
-
-            if p.lives <= 0 then
-                self.gameOver = true
-                self.won = false
-            end
-        end
-    end
-
-    -- Check bullet collisions
+    -- Check bullet collisions with player (enemy bullets)
     for i = #self.bullets, 1, -1 do
         local bullet = self.bullets[i]
         if bullet.enemy then
@@ -875,6 +799,7 @@ function Game:update(dt)
                 end
             end
         else
+            -- Player bullets vs asteroids
             for j = #self.asteroids, 1, -1 do
                 local asteroid = self.asteroids[j]
                 if checkCollision(bullet, asteroid) then
@@ -927,7 +852,7 @@ function Game:update(dt)
     end
 
     -- Check level completion
-    if #self.asteroids == 0 and #self.enemy == 0 then
+    if #self.asteroids == 0 and self.enemy:getCount() == 0 then
         self.level = self.level + 1
         spawnAsteroids(self, 4 + self.level, 1)
 
@@ -944,7 +869,7 @@ function Game:draw(time)
     drawStarField(self, time)
     drawAsteroids(self)
     drawPowerups(self, time)
-    drawEnemy(self, time)
+    self.enemy:draw(time)
     drawBullets(self, time)
     drawPlayer(self, time)
     drawUI(self, time)
