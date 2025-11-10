@@ -14,7 +14,6 @@ local enemyPool = {}
 local HALF_PI = pi * 0.5
 
 local function getFromPool(pool) return #pool > 0 and remove(pool) or {} end
-
 local function returnToPool(pool, obj)
     for k in pairs(obj) do obj[k] = nil end
     insert(pool, obj)
@@ -72,7 +71,7 @@ function Enemy:spawn()
     self.spawnCooldown = 15 - (self.difficulty == "easy" and 5 or self.difficulty == "medium" and 2 or 0)
 end
 
-function Enemy:update(dt, player, bullets, powerups, bulletPool)
+function Enemy:update(dt, player, bulletManager)
     self.spawnCooldown = self.spawnCooldown - dt
     if self.spawnCooldown <= 0 then self:spawn() end
 
@@ -94,36 +93,25 @@ function Enemy:update(dt, player, bullets, powerups, bulletPool)
         -- Shooting
         e.shootCooldown = e.shootCooldown - dt
         if e.shootCooldown <= 0 then
-            local bullet = getFromPool(bulletPool)
-            bullet.x = e.x
-            bullet.y = e.y
-
             -- Calculate direction towards player
             local px, py = player.x - e.x, player.y - e.y
             local pdist = sqrt(px * px + py * py)
+            local vx, vy = 0, 400
             if pdist > 0 then
-                bullet.vx = (px / pdist) * 400
-                bullet.vy = (py / pdist) * 400
-            else
-                bullet.vx = 0
-                bullet.vy = 400
+                vx = (px / pdist) * 400
+                vy = (py / pdist) * 400
             end
 
-            bullet.life = 3
-            bullet.size = 4
-            bullet.enemy = true
-
-            insert(bullets, bullet)
+            bulletManager:create(e.x, e.y, vx, vy, 3, 4, true)
             e.shootCooldown = 1.5 - (self.difficulty == "hard" and 0.5 or 0)
         end
 
         -- Check collisions with player bullets
-        for j = #bullets, 1, -1 do
-            local bullet = bullets[j]
+        for j = #bulletManager:getBullets(), 1, -1 do
+            local bullet = bulletManager:getBullets()[j]
             if not bullet.enemy and self:checkCollision(e, bullet) then
                 e.health = e.health - 1
-                returnToPool(bulletPool, bullet)
-                remove(bullets, j)
+                bulletManager:removeBullet(j)
 
                 if e.health <= 0 then
                     player.score = player.score + 200
@@ -220,15 +208,11 @@ function Enemy:draw(time)
 end
 
 function Enemy:reset()
-    for _, obj in ipairs(self.enemies) do
-        returnToPool(enemyPool, obj)
-    end
+    for _, obj in ipairs(self.enemies) do returnToPool(enemyPool, obj) end
     self.enemies = {}
     self.spawnCooldown = 0
 end
 
-function Enemy:getCount()
-    return #self.enemies
-end
+function Enemy:getCount() return #self.enemies end
 
 return Enemy

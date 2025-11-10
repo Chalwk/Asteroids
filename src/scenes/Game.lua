@@ -5,6 +5,7 @@
 local Enemy = require("src.entities.Enemy")
 local Asteroid = require("src.entities.Asteroid")
 local Powerup = require("src.entities.Powerup")
+local Bullet = require("src.entities.Bullet")
 
 local lg = love.graphics
 local random = love.math.random
@@ -19,15 +20,7 @@ local TWO_PI = pi * 2
 local PLAYER_SPAWN_X
 local PLAYER_SPAWN_Y
 
-local asteroidManager, enemy, powerups
-local bulletPool = {}
-
-local function getFromPool(pool) return #pool > 0 and remove(pool) or {} end
-
-local function returnToPool(pool, obj)
-    for k in pairs(obj) do obj[k] = nil end
-    insert(pool, obj)
-end
+local asteroidManager, enemy, powerupManager, bulletManager
 
 local function createPlayer(self)
     self.player = {
@@ -291,26 +284,6 @@ local function drawPlayer(self, time)
     lg.setLineWidth(1)
 end
 
-local function drawBullets(self)
-    for _, bullet in ipairs(self.bullets) do
-        -- additive glow core
-        lg.setBlendMode("add")
-        lg.setColor(1, 0.9, 0.45, 0.8)
-        lg.circle("fill", bullet.x, bullet.y, bullet.size * 2.2)
-        lg.setColor(1, 0.85, 0.2, 0.6)
-        lg.circle("fill", bullet.x, bullet.y, bullet.size * 1.1)
-        lg.setBlendMode("alpha")
-
-        -- crisp core
-        lg.setColor(1, 0.95, 0.7)
-        lg.circle("fill", bullet.x, bullet.y, bullet.size)
-        lg.setColor(1, 0.8, 0.15)
-        lg.circle("line", bullet.x, bullet.y, bullet.size)
-    end
-    lg.setLineWidth(1)
-    lg.setBlendMode("alpha")
-end
-
 local function drawStarField(self, time)
     -- draw layered starfield with gentle parallax and twinkle
     -- background haze
@@ -351,13 +324,13 @@ function Game.new(fontManager)
     instance.difficulty = "medium"
     instance.paused = false
     instance.level = 1
-    instance.bullets = {}
     instance.particles = {}
     instance.waveCooldown = 0
 
-    powerups = Powerup.new()
+    powerupManager = Powerup.new()
     asteroidManager = Asteroid.new(screenWidth, screenHeight)
     enemy = Enemy.new(instance.difficulty, screenWidth, screenHeight, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
+    bulletManager = Bullet.new()
 
     createPlayer(instance)
     createStarField(instance)
@@ -392,13 +365,12 @@ function Game:startNewGame(difficulty)
     self.level = 1
 
     asteroidManager:clearAll()
-    for _, obj in ipairs(self.bullets) do returnToPool(bulletPool, obj) end
-    powerups:clear()
+    bulletManager:clear()
+    powerupManager:clear()
 
     enemy:reset()
     enemy.difficulty = self.difficulty
 
-    self.bullets = {}
     self.particles = {}
 
     createPlayer(self)
@@ -463,31 +435,20 @@ function Game:update(dt)
 
     -- Shooting
     if love.keyboard.isDown("space") and p.shootCooldown <= 0 then
-        local bullet = getFromPool(bulletPool)
-        bullet.x = p.x + sin_angle * 20
-        bullet.y = p.y - cos_angle * 20
-        bullet.vx = sin_angle * 500
-        bullet.vy = -cos_angle * 500
-        bullet.life = 2
-        bullet.size = 3
-        bullet.enemy = nil
-
-        insert(self.bullets, bullet)
+        bulletManager:create(
+            p.x + sin_angle * 20,
+            p.y - cos_angle * 20,
+            sin_angle * 500,
+            -cos_angle * 500,
+            2,
+            3,
+            nil -- not enemy bullet
+        )
         p.shootCooldown = 0.2
     end
 
     -- Update bullets
-    for i = #self.bullets, 1, -1 do
-        local bullet = self.bullets[i]
-        bullet.x = bullet.x + bullet.vx * dt
-        bullet.y = bullet.y + bullet.vy * dt
-        bullet.life = bullet.life - dt
-
-        if bullet.life <= 0 or bullet.x < -50 or bullet.x > screenWidth + 50 or bullet.y < -50 or bullet.y > screenHeight + 50 then
-            returnToPool(bulletPool, bullet)
-            remove(self.bullets, i)
-        end
-    end
+    bulletManager:update(dt)
 
     -- Update asteroids using asteroid manager
     local asteroidCollision = asteroidManager:update(dt, p)
@@ -497,10 +458,10 @@ function Game:update(dt)
     end
 
     -- Update powerups
-    powerups:update(dt, p)
+    powerupManager:update(dt, p)
 
     -- Update enemy
-    enemy:update(dt, p, self.bullets, powerups, bulletPool)
+    enemy:update(dt, p, bulletManager)
 
     -- Check enemy collision with player
     if enemy:checkPlayerCollision(p) and p.lives <= 0 then
@@ -509,16 +470,15 @@ function Game:update(dt)
     end
 
     -- Check enemy bullet collisions with player
-    for i = #self.bullets, 1, -1 do
-        local bullet = self.bullets[i]
+    for i = #bulletManager:getBullets(), 1, -1 do
+        local bullet = bulletManager:getBullets()[i]
         if bullet.enemy and p.invulnerable <= 0 then
             local dx, dy = bullet.x - p.x, bullet.y - p.y
             local distance = math.sqrt(dx * dx + dy * dy)
             if distance < (bullet.size + p.size) then
                 p.lives = p.lives - 1
                 p.invulnerable = 2
-                returnToPool(bulletPool, bullet)
-                remove(self.bullets, i)
+                bulletManager:removeBullet(i)
 
                 if p.lives <= 0 then
                     self.gameOver = true
@@ -529,8 +489,8 @@ function Game:update(dt)
     end
 
     -- Check bullet collisions with asteroids
-    for i = #self.bullets, 1, -1 do
-        local bullet = self.bullets[i]
+    for i = #bulletManager:getBullets(), 1, -1 do
+        local bullet = bulletManager:getBullets()[i]
         if not bullet.enemy then
             -- Player bullets vs asteroids
             for j = #asteroidManager:getAsteroids(), 1, -1 do
@@ -549,12 +509,11 @@ function Game:update(dt)
                     end
 
                     if random() < 0.2 then
-                        powerups:spawn(asteroid.x, asteroid.y) -- Change this line
+                        powerupManager:spawn(asteroid.x, asteroid.y)
                     end
 
                     asteroidManager:removeAsteroid(j)
-                    returnToPool(bulletPool, bullet)
-                    remove(self.bullets, i)
+                    bulletManager:removeBullet(i)
                     break
                 end
             end
@@ -595,10 +554,10 @@ function Game:draw(time)
     drawStarField(self, time)
 
     asteroidManager:draw()
-    powerups:draw(time)
+    powerupManager:draw(time)
     enemy:draw(time)
 
-    drawBullets(self)
+    bulletManager:draw()
     drawPlayer(self, time)
     drawUI(self, time)
 
