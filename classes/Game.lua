@@ -234,9 +234,9 @@ local function drawUI(self, time)
     -- HUD background
     lg.push()
     lg.setColor(0, 0, 0, 0.35)
-    lg.rectangle("fill", 12, 12, 280, 120, 8)
+    lg.rectangle("fill", 12, 12, 310, 130, 8)
     lg.setColor(1, 1, 1, 0.06)
-    lg.rectangle("line", 12, 12, 280, 120, 8)
+    lg.rectangle("line", 12, 12, 310, 130, 8)
     lg.pop()
 
     -- Score
@@ -262,7 +262,7 @@ local function drawUI(self, time)
 
     -- Boost meter with glowing bar
     local boostPercent = self.player.boostTime / self.player.maxBoostTime
-    local boostX, boostY, boostW, boostH = 24, 96, 240, 12
+    local boostX, boostY, boostW, boostH = 24, 120, 240, 12
 
     lg.setColor(0.12, 0.12, 0.18, 0.6)
     lg.rectangle("fill", boostX, boostY, boostW, boostH, 6)
@@ -677,8 +677,9 @@ function Game:update(dt)
     local boosting = love.keyboard.isDown("lshift") and p.boostCooldown <= 0 and p.boostTime > 0
 
     if thrusting then
+        local currentMaxSpeed = p.maxSpeed * (boosting and p.boostPower or 1)
         local acceleration = p.acceleration * (boosting and p.boostPower or 1)
-        p.speed = min(p.speed + acceleration * dt, p.maxSpeed)
+        p.speed = min(p.speed + acceleration * dt, currentMaxSpeed)
 
         if boosting then
             p.boostTime = max(0, p.boostTime - dt)
@@ -794,7 +795,7 @@ function Game:update(dt)
 
         e.x = e.x + e.vx * dt
         e.y = e.y + e.vy * dt
-        e.rotation = atan2(e.vy, e.vx)
+        e.rotation = atan2(e.vy, e.vx) + HALF_PI
 
         -- Shooting
         e.shootCooldown = e.shootCooldown - dt
@@ -802,8 +803,18 @@ function Game:update(dt)
             local bullet = getFromPool(bulletPool)
             bullet.x = e.x
             bullet.y = e.y
-            bullet.vx = cos(e.rotation) * 400
-            bullet.vy = sin(e.rotation) * 400
+
+            -- Calculate direction towards player
+            local px, py = self.player.x - e.x, self.player.y - e.y
+            local pdist = math.sqrt(px * px + py * py)
+            if pdist > 0 then
+                bullet.vx = (px / pdist) * 400
+                bullet.vy = (py / pdist) * 400
+            else
+                bullet.vx = 0
+                bullet.vy = 400
+            end
+
             bullet.life = 3
             bullet.size = 4
             bullet.enemy = true
