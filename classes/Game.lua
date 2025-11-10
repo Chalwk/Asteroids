@@ -3,11 +3,13 @@
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
 local Enemy = require("classes.Enemy")
+local Asteroid = require("classes.Asteroid")
 
 local lg = love.graphics
 local random = love.math.random
 local insert, remove = table.insert, table.remove
 local sin, cos, pi, min, max = math.sin, math.cos, math.pi, math.min, math.max
+
 
 local Game = {}
 Game.__index = Game
@@ -17,9 +19,8 @@ local TWO_PI = pi * 2
 local PLAYER_SPAWN_X
 local PLAYER_SPAWN_Y
 
-local enemy
+local asteroidManager, enemy
 local bulletPool = {}
-local asteroidPool = {}
 local powerupPool = {}
 
 local function getFromPool(pool) return #pool > 0 and remove(pool) or {} end
@@ -70,37 +71,6 @@ local function createStarField(self)
     end
 end
 
-local function createAsteroid(x, y, size, level)
-    local speed = random(50, 150) / (level or 1)
-    local angle = random() * TWO_PI
-
-    return {
-        x = x or random(0, screenWidth),
-        y = y or random(0, screenHeight),
-        vx = cos(angle) * speed,
-        vy = sin(angle) * speed,
-        size = size or random(30, 80),
-        rotation = random() * TWO_PI,
-        rotationSpeed = (random() - 0.5) * 2,
-        level = level or 1,
-        vertices = {}
-    }
-end
-
-local function generateAsteroidShape(asteroid)
-    local vertices = {}
-    local numPoints = random(8, 12)
-
-    for i = 1, numPoints do
-        local angle = (i / numPoints) * TWO_PI
-        local distance = asteroid.size * (0.7 + random() * 0.3)
-        insert(vertices, cos(angle) * distance)
-        insert(vertices, sin(angle) * distance)
-    end
-
-    asteroid.vertices = vertices
-end
-
 local function createPowerup(x, y)
     local types = { "boost", "shield", "rapid" }
     return {
@@ -137,24 +107,6 @@ local function wrapPosition(obj, size)
         obj.y = screenHeight + size
     elseif obj.y > screenHeight + size then
         obj.y = -size
-    end
-end
-
-local function spawnAsteroids(self, count, level)
-    for _ = 1, count do
-        local asteroid = getFromPool(asteroidPool)
-        local newAsteroid = createAsteroid(nil, nil, nil, level)
-        for k, v in pairs(newAsteroid) do asteroid[k] = v end
-
-        -- Ensure asteroids spawn away from player
-        local minDistSq = 150 * 150
-        while distanceSquared(asteroid.x, asteroid.y, self.player.x, self.player.y) < minDistSq do
-            asteroid.x = random(0, screenWidth)
-            asteroid.y = random(0, screenHeight)
-        end
-
-        generateAsteroidShape(asteroid)
-        insert(self.asteroids, asteroid)
     end
 end
 
@@ -364,36 +316,6 @@ local function drawPlayer(self, time)
     lg.setLineWidth(1)
 end
 
-local function drawAsteroids(self)
-    for _, asteroid in ipairs(self.asteroids) do
-        lg.push()
-        lg.translate(asteroid.x, asteroid.y)
-        lg.rotate(asteroid.rotation)
-
-        -- Fill base
-        lg.setColor(0.48, 0.44, 0.38, 0.9)
-        lg.polygon("fill", asteroid.vertices)
-
-        -- Subtle inner shadow: smaller scaled polygon in multiply-ish effect
-        lg.setColor(0, 0, 0, 0.08)
-        local darkVerts = {}
-        for i = 1, #asteroid.vertices, 2 do
-            local vx, vy = asteroid.vertices[i] * 0.86, asteroid.vertices[i + 1] * 0.86
-            table.insert(darkVerts, vx - 2)
-            table.insert(darkVerts, vy + 2)
-        end
-        lg.polygon("fill", darkVerts)
-
-        -- Outline
-        lg.setColor(0.2, 0.18, 0.16)
-        lg.setLineWidth(2)
-        lg.polygon("line", asteroid.vertices)
-
-        lg.pop()
-    end
-    lg.setLineWidth(1)
-end
-
 local function drawBullets(self)
     for _, bullet in ipairs(self.bullets) do
         -- additive glow core
@@ -499,11 +421,13 @@ function Game.new(fontManager)
     instance.difficulty = "medium"
     instance.paused = false
     instance.level = 1
-    instance.asteroids = {}
     instance.bullets = {}
     instance.powerups = {}
     instance.particles = {}
     instance.waveCooldown = 0
+
+    -- Initialize Asteroid manager
+    asteroidManager = Asteroid.new(screenWidth, screenHeight)
 
     enemy = Enemy.new(instance.difficulty, screenWidth, screenHeight, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
 
@@ -511,7 +435,8 @@ function Game.new(fontManager)
     createStarField(instance)
     createPauseButtons(instance)
 
-    spawnAsteroids(instance, 4 + instance.level, 1)
+    -- Spawn initial asteroids using the asteroid manager
+    asteroidManager:spawn(4 + instance.level, 1, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
 
     return instance
 end
@@ -540,20 +465,19 @@ function Game:startNewGame(difficulty)
     self.level = 1
 
     -- Return objects to pools
-    for _, obj in ipairs(self.asteroids) do returnToPool(asteroidPool, obj) end
+    asteroidManager:clearAll()
     for _, obj in ipairs(self.bullets) do returnToPool(bulletPool, obj) end
     for _, obj in ipairs(self.powerups) do returnToPool(powerupPool, obj) end
 
     enemy:reset()
     enemy.difficulty = self.difficulty
 
-    self.asteroids = {}
     self.bullets = {}
     self.powerups = {}
     self.particles = {}
 
     createPlayer(self)
-    spawnAsteroids(self, 4 + self.level, 1)
+    asteroidManager:spawn(4 + self.level, 1, self.player.x, self.player.y)
 end
 
 function Game:handleClick()
@@ -640,23 +564,11 @@ function Game:update(dt)
         end
     end
 
-    -- Update asteroids
-    for i = #self.asteroids, 1, -1 do
-        local asteroid = self.asteroids[i]
-        asteroid.x = asteroid.x + asteroid.vx * dt
-        asteroid.y = asteroid.y + asteroid.vy * dt
-        asteroid.rotation = asteroid.rotation + asteroid.rotationSpeed * dt
-        wrapPosition(asteroid)
-
-        if p.invulnerable <= 0 and checkCollision(p, asteroid) then
-            p.lives = p.lives - 1
-            p.invulnerable = 2
-
-            if p.lives <= 0 then
-                self.gameOver = true
-                self.won = false
-            end
-        end
+    -- Update asteroids using asteroid manager
+    local asteroidCollision = asteroidManager:update(dt, p)
+    if asteroidCollision and p.lives <= 0 then
+        self.gameOver = true
+        self.won = false
     end
 
     -- Update powerups
@@ -695,38 +607,23 @@ function Game:update(dt)
         self.won = false
     end
 
-    -- Check bullet collisions with player (enemy bullets)
+    -- Check bullet collisions with asteroids
     for i = #self.bullets, 1, -1 do
         local bullet = self.bullets[i]
-        if bullet.enemy then
-            if p.invulnerable <= 0 and checkCollision(p, bullet) then
-                p.lives = p.lives - 1
-                p.invulnerable = 2
-                returnToPool(bulletPool, bullet)
-                remove(self.bullets, i)
-
-                if p.lives <= 0 then
-                    self.gameOver = true
-                    self.won = false
-                end
-            end
-        else
+        if not bullet.enemy then
             -- Player bullets vs asteroids
-            for j = #self.asteroids, 1, -1 do
-                local asteroid = self.asteroids[j]
-                if checkCollision(bullet, asteroid) then
+            for j = #asteroidManager:getAsteroids(), 1, -1 do
+                local asteroid = asteroidManager:getAsteroids()[j]
+                if asteroidManager:checkCollision(bullet, asteroid) then
                     p.score = p.score + (4 - asteroid.level) * 25
 
                     if asteroid.level < 3 then
                         for _ = 1, 2 do
-                            local newAsteroid = getFromPool(asteroidPool)
-                            local created = createAsteroid(asteroid.x, asteroid.y, asteroid.size * 0.6,
-                                asteroid.level + 1)
-                            for k, v in pairs(created) do newAsteroid[k] = v end
+                            local newAsteroid = asteroidManager:createAsteroid(asteroid.x, asteroid.y,
+                                asteroid.size * 0.6, asteroid.level + 1)
                             newAsteroid.vx = newAsteroid.vx + (random() - 0.5) * 100
                             newAsteroid.vy = newAsteroid.vy + (random() - 0.5) * 100
-                            generateAsteroidShape(newAsteroid)
-                            insert(self.asteroids, newAsteroid)
+                            insert(asteroidManager:getAsteroids(), newAsteroid)
                         end
                     end
 
@@ -737,8 +634,7 @@ function Game:update(dt)
                         insert(self.powerups, powerup)
                     end
 
-                    returnToPool(asteroidPool, asteroid)
-                    remove(self.asteroids, j)
+                    asteroidManager:removeAsteroid(j)
                     returnToPool(bulletPool, bullet)
                     remove(self.bullets, i)
                     break
@@ -764,9 +660,9 @@ function Game:update(dt)
     end
 
     -- Check level completion
-    if #self.asteroids == 0 and enemy:getCount() == 0 then
+    if asteroidManager:isEmpty() and enemy:getCount() == 0 then
         self.level = self.level + 1
-        spawnAsteroids(self, 4 + self.level, 1)
+        asteroidManager:spawn(4 + self.level, 1, self.player.x, self.player.y)
 
         if self.level >= 5 then
             self.gameOver = true
@@ -779,7 +675,7 @@ function Game:draw(time)
     lg.push()
 
     drawStarField(self, time)
-    drawAsteroids(self)
+    asteroidManager:draw()
     drawPowerups(self, time)
     drawEnemy(time)
     drawBullets(self)
