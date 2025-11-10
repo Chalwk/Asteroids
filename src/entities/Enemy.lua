@@ -72,11 +72,9 @@ function Enemy:spawn()
     self.spawnCooldown = 15 - (self.difficulty == "easy" and 5 or self.difficulty == "medium" and 2 or 0)
 end
 
-function Enemy:update(dt, player, bullets, powerups, bulletPool, powerupPool)
+function Enemy:update(dt, player, bullets, powerups, bulletPool)
     self.spawnCooldown = self.spawnCooldown - dt
-    if self.spawnCooldown <= 0 then
-        self:spawn()
-    end
+    if self.spawnCooldown <= 0 then self:spawn() end
 
     for i = #self.enemies, 1, -1 do
         local e = self.enemies[i]
@@ -129,18 +127,6 @@ function Enemy:update(dt, player, bullets, powerups, bulletPool, powerupPool)
 
                 if e.health <= 0 then
                     player.score = player.score + 200
-                    if random() < 0.3 then
-                        local powerup = getFromPool(powerupPool)
-                        powerup.x = e.x
-                        powerup.y = e.y
-                        powerup.vx = (random() - 0.5) * 50
-                        powerup.vy = (random() - 0.5) * 50
-                        powerup.type = ({ "boost", "shield", "rapid" })[random(1, 3)]
-                        powerup.size = 15
-                        powerup.rotation = 0
-                        powerup.life = 10
-                        insert(powerups, powerup)
-                    end
                     returnToPool(enemyPool, e)
                     remove(self.enemies, i)
                     break

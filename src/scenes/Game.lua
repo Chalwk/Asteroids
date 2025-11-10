@@ -4,6 +4,7 @@
 
 local Enemy = require("src.entities.Enemy")
 local Asteroid = require("src.entities.Asteroid")
+local Powerup = require("src.entities.Powerup")
 
 local lg = love.graphics
 local random = love.math.random
@@ -18,9 +19,8 @@ local TWO_PI = pi * 2
 local PLAYER_SPAWN_X
 local PLAYER_SPAWN_Y
 
-local asteroidManager, enemy
+local asteroidManager, enemy, powerups
 local bulletPool = {}
-local powerupPool = {}
 
 local function getFromPool(pool) return #pool > 0 and remove(pool) or {} end
 
@@ -68,30 +68,6 @@ local function createStarField(self)
             twinkle = random() * 2
         }
     end
-end
-
-local function createPowerup(x, y)
-    local types = { "boost", "shield", "rapid" }
-    return {
-        x = x,
-        y = y,
-        vx = (random() - 0.5) * 50,
-        vy = (random() - 0.5) * 50,
-        type = types[random(1, 3)],
-        size = 15,
-        rotation = 0,
-        life = 10
-    }
-end
-
-local function distanceSquared(x1, y1, x2, y2)
-    local dx, dy = x2 - x1, y2 - y1
-    return dx * dx + dy * dy
-end
-
-local function checkCollision(a, b)
-    local minDist = (a.size or a.radius or 0) + (b.size or b.radius or 0)
-    return distanceSquared(a.x, a.y, b.x, b.y) < minDist * minDist
 end
 
 local function wrapPosition(obj, size)
@@ -335,51 +311,6 @@ local function drawBullets(self)
     lg.setBlendMode("alpha")
 end
 
-local function drawPowerups(self, time)
-    for _, powerup in ipairs(self.powerups) do
-        lg.push()
-        lg.translate(powerup.x, powerup.y)
-        lg.rotate(powerup.rotation)
-
-        -- subtle pulsing
-        local pulse = 1 + 0.08 * sin(time * 6 + powerup.x * 0.01)
-
-        if powerup.type == "boost" then
-            lg.setBlendMode("add")
-            lg.setColor(0.15, 0.55, 1, 0.65)
-            lg.rectangle("fill", -powerup.size * 0.5 * pulse, -powerup.size * 0.5 * pulse, powerup.size * pulse,
-                powerup.size * pulse, 4)
-            lg.setBlendMode("alpha")
-            lg.setColor(0.2, 0.6, 1)
-            lg.rectangle("line", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size, powerup.size, 3)
-        elseif powerup.type == "shield" then
-            lg.setBlendMode("add")
-            lg.setColor(0.12, 1, 0.45, 0.55)
-            lg.circle("fill", 0, 0, powerup.size * pulse)
-            lg.setBlendMode("alpha")
-            lg.setColor(0.12, 1, 0.45)
-            lg.circle("line", 0, 0, powerup.size)
-        elseif powerup.type == "rapid" then
-            lg.setBlendMode("add")
-            lg.setColor(1, 0.35, 0.35, 0.6)
-            lg.polygon("fill", -powerup.size * 0.5 * pulse, -powerup.size * 0.5 * pulse, powerup.size * 0.5 * pulse, 0,
-                -powerup.size * 0.5 * pulse,
-                powerup.size * 0.5 * pulse)
-            lg.setBlendMode("alpha")
-            lg.setColor(1, 0.3, 0.3)
-            lg.polygon("line", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size * 0.5, 0, -powerup.size * 0.5,
-                powerup.size * 0.5)
-        end
-
-        lg.setColor(1, 1, 1, 0.9)
-        lg.pop()
-    end
-end
-
-local function drawEnemy(time)
-    enemy:draw(time)
-end
-
 local function drawStarField(self, time)
     -- draw layered starfield with gentle parallax and twinkle
     -- background haze
@@ -421,20 +352,17 @@ function Game.new(fontManager)
     instance.paused = false
     instance.level = 1
     instance.bullets = {}
-    instance.powerups = {}
     instance.particles = {}
     instance.waveCooldown = 0
 
-    -- Initialize Asteroid manager
+    powerups = Powerup.new()
     asteroidManager = Asteroid.new(screenWidth, screenHeight)
-
     enemy = Enemy.new(instance.difficulty, screenWidth, screenHeight, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
 
     createPlayer(instance)
     createStarField(instance)
     createPauseButtons(instance)
 
-    -- Spawn initial asteroids using the asteroid manager
     asteroidManager:spawn(4 + instance.level, 1, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
 
     return instance
@@ -463,16 +391,14 @@ function Game:startNewGame(difficulty)
     self.paused = false
     self.level = 1
 
-    -- Return objects to pools
     asteroidManager:clearAll()
     for _, obj in ipairs(self.bullets) do returnToPool(bulletPool, obj) end
-    for _, obj in ipairs(self.powerups) do returnToPool(powerupPool, obj) end
+    powerups:clear()
 
     enemy:reset()
     enemy.difficulty = self.difficulty
 
     self.bullets = {}
-    self.powerups = {}
     self.particles = {}
 
     createPlayer(self)
@@ -571,34 +497,10 @@ function Game:update(dt)
     end
 
     -- Update powerups
-    for i = #self.powerups, 1, -1 do
-        local powerup = self.powerups[i]
-        powerup.x = powerup.x + powerup.vx * dt
-        powerup.y = powerup.y + powerup.vy * dt
-        powerup.rotation = powerup.rotation + dt
-        powerup.life = powerup.life - dt
-
-        wrapPosition(powerup)
-
-        if powerup.life <= 0 then
-            returnToPool(powerupPool, powerup)
-            remove(self.powerups, i)
-        elseif checkCollision(p, powerup) then
-            if powerup.type == "boost" then
-                p.boostTime = p.maxBoostTime
-                p.boostCooldown = 0
-            elseif powerup.type == "shield" then
-                p.invulnerable = 5
-            elseif powerup.type == "rapid" then
-                p.shootCooldown = 0.1
-            end
-            returnToPool(powerupPool, powerup)
-            remove(self.powerups, i)
-        end
-    end
+    powerups:update(dt, p)
 
     -- Update enemy
-    enemy:update(dt, p, self.bullets, self.powerups, bulletPool, powerupPool)
+    enemy:update(dt, p, self.bullets, powerups, bulletPool)
 
     -- Check enemy collision with player
     if enemy:checkPlayerCollision(p) and p.lives <= 0 then
@@ -627,10 +529,7 @@ function Game:update(dt)
                     end
 
                     if random() < 0.2 then
-                        local powerup = getFromPool(powerupPool)
-                        local newPowerup = createPowerup(asteroid.x, asteroid.y)
-                        for k, v in pairs(newPowerup) do powerup[k] = v end
-                        insert(self.powerups, powerup)
+                        powerups:spawn(asteroid.x, asteroid.y) -- Change this line
                     end
 
                     asteroidManager:removeAsteroid(j)
@@ -674,9 +573,11 @@ function Game:draw(time)
     lg.push()
 
     drawStarField(self, time)
+
     asteroidManager:draw()
-    drawPowerups(self, time)
-    drawEnemy(time)
+    powerups:draw(time)
+    enemy:draw(time)
+
     drawBullets(self)
     drawPlayer(self, time)
     drawUI(self, time)
