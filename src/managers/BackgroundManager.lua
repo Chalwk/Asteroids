@@ -2,9 +2,10 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
+local ipairs = ipairs
 local lg = love.graphics
 local random = love.math.random
-local sin, cos, pi = math.sin, math.cos, math.pi
+local sin, pi = math.sin, math.pi
 
 local BackgroundManager = {}
 BackgroundManager.__index = BackgroundManager

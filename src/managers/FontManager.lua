@@ -4,6 +4,7 @@
 
 local font_path = "assets/fonts/segoe-ui-symbol.ttf"
 local lg = love.graphics
+local pairs = pairs
 
 local FontManager = {}
 FontManager.__index = FontManager

@@ -2,6 +2,8 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
+local pairs = pairs
+
 local SoundManager = {}
 SoundManager.__index = SoundManager
 

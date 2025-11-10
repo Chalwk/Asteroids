@@ -7,9 +7,10 @@ local Asteroid = require("src.entities.Asteroid")
 local Powerup = require("src.entities.Powerup")
 local Bullet = require("src.entities.Bullet")
 
+local ipairs = ipairs
 local lg = love.graphics
 local random = love.math.random
-local insert, remove = table.insert, table.remove
+local insert = table.insert
 local sin, cos, pi, min, max = math.sin, math.cos, math.pi, math.min, math.max
 
 local Game = {}
@@ -292,29 +293,45 @@ end
 local function drawPlayer(self, time)
     local p = self.player
 
+    -- Flashing invulnerability effect
     if p.invulnerable > 0 and p.invulnerable % 0.2 > 0.1 then return end
 
     lg.push()
     lg.translate(p.x, p.y)
     lg.rotate(p.angle)
 
-    -- Ship body: filled with soft gradient illusion via two draws
-    lg.setColor(0.86, 0.92, 1)
-    lg.polygon("fill", 0, -p.size, -p.size * 0.75, p.size, p.size * 0.75, p.size)
-    lg.setColor(0.06, 0.08, 0.12, 0.6)
+    -- Ship body: rounded triangle
+    lg.setColor(0.8, 0.9, 1) -- soft pastel blue
     lg.setLineWidth(2)
-    lg.polygon("line", 0, -p.size, -p.size * 0.75, p.size, p.size * 0.75, p.size)
 
-    -- Thrust glow (additive) if thrusting or moving
+    -- Draw main body as a smooth polygon (rounded triangle look)
+    local points = {
+        0, -p.size,                  -- nose
+        -p.size * 0.7, p.size * 0.8, -- left fin
+        0, p.size * 0.6,             -- bottom middle curve
+        p.size * 0.7, p.size * 0.8   -- right fin
+    }
+    lg.polygon("fill", points)
+
+    -- Outline with slightly darker shade
+    lg.setColor(0.1, 0.12, 0.18, 0.7)
+    lg.polygon("line", points)
+
+    -- Cartoonish windows or cockpit
+    lg.setColor(0.4, 0.7, 1, 0.8)
+    lg.ellipse("fill", 0, -p.size * 0.25, p.size * 0.3, p.size * 0.2)
+
+    -- Thrust glow: exaggerated and soft
     if p.speed > 1 or love.keyboard.isDown("w", "up") then
         lg.setBlendMode("add")
-        local t = (sin(time * 20) + 1) * 0.5
-        local glowSize = p.size * (1 + 0.6 * t + (p.boostTime > 0 and 0.6 or 0))
-        lg.setColor(1, 0.55, 0.25, 0.65 + 0.25 * t)
+        local t = (math.sin(time * 20) + 1) * 0.5
+        local glowSize = p.size * (1 + 0.8 * t + (p.boostTime > 0 and 0.6 or 0))
+        lg.setColor(1, 0.6, 0.2, 0.5 + 0.4 * t)
         lg.polygon("fill", -p.size * 0.45, p.size, 0, p.size + glowSize, p.size * 0.45, p.size)
+
         if p.boostTime > 0 then
-            lg.setColor(0.2, 0.75, 1, 0.45 + 0.2 * t)
-            lg.polygon("fill", -p.size * 0.28, p.size, 0, p.size + glowSize * 1.2, p.size * 0.28, p.size)
+            lg.setColor(0.2, 0.8, 1, 0.35 + 0.25 * t)
+            lg.polygon("fill", -p.size * 0.3, p.size, 0, p.size + glowSize * 1.2, p.size * 0.3, p.size)
         end
         lg.setBlendMode("alpha")
     end
@@ -322,6 +339,7 @@ local function drawPlayer(self, time)
     lg.pop()
     lg.setLineWidth(1)
 end
+
 
 local function drawStarField(self, time)
     -- draw layered starfield with gentle parallax and twinkle

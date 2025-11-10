@@ -2,9 +2,7 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
-local Powerup = {}
-Powerup.__index = Powerup
-
+local pairs, ipairs = pairs, ipairs
 local lg = love.graphics
 local random = love.math.random
 local insert, remove = table.insert, table.remove
@@ -46,6 +44,9 @@ local function wrapPosition(obj, size)
         obj.y = -size
     end
 end
+
+local Powerup = {}
+Powerup.__index = Powerup
 
 function Powerup.new()
     local instance = setmetatable({}, Powerup)

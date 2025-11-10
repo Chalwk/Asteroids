@@ -2,6 +2,7 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
+local pairs, ipairs = pairs, ipairs
 local lg = love.graphics
 local random = love.math.random
 local insert, remove = table.insert, table.remove
@@ -505,65 +506,64 @@ function Enemy:draw(time)
         lg.translate(e.x, e.y)
         lg.rotate(e.rotation)
 
-        -- Base hue shifts slightly with time for alien feel
-        local pulse = 0.6 + 0.4 * sin(time * 4 + e.x * 0.05)
-        local coreHue = { 0.6 + 0.2 * pulse, 0.1 + 0.3 * pulse, 0.9 - 0.2 * pulse }
+        -- Base color pulse for alien vibe
+        local pulse = 0.6 + 0.4 * math.sin(time * 4 + e.x * 0.05)
+        local coreColor = {0.6 + 0.2 * pulse, 0.2 + 0.3 * pulse, 0.9 - 0.3 * pulse}
 
-        -- Color variation based on behavior state
+        -- Behavior-based color shifts
         if e.behavior == BEHAVIOR_STATES.EVADE then
-            coreHue = { 0.9, 0.3, 0.3 } -- Red when evading
+            coreColor = {0.9, 0.3, 0.3} -- red alert
         elseif e.behavior == BEHAVIOR_STATES.SWARM then
-            coreHue = { 0.3, 0.6, 0.9 } -- Blue when swarming
+            coreColor = {0.3, 0.7, 1} -- friendly blue
         end
 
-        -- Main hull: glowing diamond-like shape
         local s = e.size
-        local hull = {
-            0, -s * 1.2,        -- top tip
-            -s * 0.8, -s * 0.3, -- left upper
-            -s * 0.9, s * 0.8,  -- left bottom
-            0, s * 1.0,         -- bottom tip
-            s * 0.9, s * 0.8,   -- right bottom
-            s * 0.8, -s * 0.3   -- right upper
-        }
 
-        -- Hull fill with subtle color shift
-        lg.setColor(coreHue[1], coreHue[2], coreHue[3], 0.9)
-        lg.polygon("fill", hull)
-
-        -- Outer edge shimmer
-        lg.setBlendMode("add")
-        lg.setColor(0.4 + 0.3 * pulse, 0.8 * pulse, 1, 0.4)
-        lg.polygon("line", hull)
-        lg.setBlendMode("alpha")
-
-        -- Cockpit dome (center glow)
-        lg.setBlendMode("add")
-        lg.setColor(0.2, 1, 0.7, 0.5 + 0.3 * pulse)
-        lg.circle("fill", 0, -s * 0.3, s * 0.35 + 1.5 * pulse)
-        lg.setBlendMode("alpha")
-
-        -- Thruster glow behind
-        lg.setBlendMode("add")
-        local thrusterSize = s * (0.8 + 0.3 * sin(time * 10 + e.y))
-        lg.setColor(1, 0.4, 0.1, 0.6 + 0.2 * sin(time * 8 + e.x))
-        lg.circle("fill", 0, s * 1.2, thrusterSize * 0.4)
-        lg.setBlendMode("alpha")
-
-        -- Aggression indicator ring (based on health)
-        if e.health <= 1 then
-            lg.setBlendMode("add")
-            lg.setColor(1, 0.2, 0.2, 0.3 + 0.2 * pulse)
-            lg.circle("line", 0, 0, s * 1.6 + 2 * sin(time * 6))
-            lg.setBlendMode("alpha")
-        end
+        -- Hull: rounded, bulbous shape
+        lg.setColor(coreColor[1], coreColor[2], coreColor[3], 0.95)
+        lg.polygon("fill",
+            0, -s,           -- nose
+            -s * 0.8, -s*0.4,
+            -s * 0.6, s*0.6,
+            0, s,
+            s * 0.6, s*0.6,
+            s * 0.8, -s*0.4
+        )
 
         -- Outline for clarity
         lg.setColor(0.1, 0.05, 0.05, 0.9)
         lg.setLineWidth(2)
-        lg.polygon("line", hull)
-        lg.setLineWidth(1)
+        lg.polygon("line",
+            0, -s,
+            -s * 0.8, -s*0.4,
+            -s * 0.6, s*0.6,
+            0, s,
+            s * 0.6, s*0.6,
+            s * 0.8, -s*0.4
+        )
 
+        -- Cockpit dome (like an eye)
+        lg.setBlendMode("add")
+        lg.setColor(0.2, 1, 0.7, 0.5 + 0.3 * pulse)
+        lg.circle("fill", 0, -s * 0.2, s * 0.35 + 1.5 * pulse)
+        lg.setBlendMode("alpha")
+
+        -- Thruster: rounded and soft
+        lg.setBlendMode("add")
+        local thrusterSize = s * (0.8 + 0.3 * math.sin(time * 10 + e.y))
+        lg.setColor(1, 0.5, 0.15, 0.6 + 0.2 * math.sin(time * 8 + e.x))
+        lg.circle("fill", 0, s * 0.9, thrusterSize * 0.5)
+        lg.setBlendMode("alpha")
+
+        -- Health/aggression indicator: cartoonish pulse ring
+        if e.health <= 1 then
+            lg.setBlendMode("add")
+            lg.setColor(1, 0.2, 0.2, 0.35 + 0.25 * pulse)
+            lg.circle("line", 0, 0, s * 1.5 + 2 * math.sin(time * 6))
+            lg.setBlendMode("alpha")
+        end
+
+        lg.setLineWidth(1)
         lg.pop()
     end
     lg.setBlendMode("alpha")

@@ -2,6 +2,7 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
+local pairs, ipairs = pairs, ipairs
 local lg = love.graphics
 local insert, remove = table.insert, table.remove
 local sqrt = math.sqrt
