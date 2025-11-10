@@ -378,11 +378,10 @@ function Enemy.new(difficulty, playerSpawnX, playerSpawnY, soundManager)
     instance.playerSpawnX = playerSpawnX
     instance.playerSpawnY = playerSpawnY
     instance.enemies = {}
-    instance.sparks = {} -- Spark particles for death effects
+    instance.sparks = {}
     instance.spawnCooldown = 0
     instance.swarmCenter = { x = screenWidth / 2, y = screenHeight / 2 }
     instance.lastSwarmUpdate = 0
-
     instance.soundManager = soundManager
 
     return instance
@@ -593,7 +592,7 @@ function Enemy:draw(time)
         if e.behavior == BEHAVIOR_STATES.EVADE then
             coreColor = { 0.9, 0.3, 0.3 } -- red alert
         elseif e.behavior == BEHAVIOR_STATES.SWARM then
-            coreColor = { 0.3, 0.7, 1 } -- friendly blue
+            coreColor = { 0.3, 0.7, 1 }   -- friendly blue
         end
 
         local s = e.size
