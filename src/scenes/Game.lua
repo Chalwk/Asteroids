@@ -10,7 +10,6 @@ local random = love.math.random
 local insert, remove = table.insert, table.remove
 local sin, cos, pi, min, max = math.sin, math.cos, math.pi, math.min, math.max
 
-
 local Game = {}
 Game.__index = Game
 
