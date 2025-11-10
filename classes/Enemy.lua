@@ -5,13 +5,13 @@
 local lg = love.graphics
 local random = love.math.random
 local insert, remove = table.insert, table.remove
-local sin, cos, atan2 = math.sin, math.cos, math.atan2
+local sin, atan2, pi, sqrt = math.sin, math.atan2, math.pi, math.sqrt
 
 local Enemy = {}
 Enemy.__index = Enemy
 
 local enemyPool = {}
-local HALF_PI = math.pi * 0.5
+local HALF_PI = pi * 0.5
 
 local function getFromPool(pool) return #pool > 0 and remove(pool) or {} end
 
@@ -102,7 +102,7 @@ function Enemy:update(dt, player, bullets, powerups, bulletPool, powerupPool)
 
             -- Calculate direction towards player
             local px, py = player.x - e.x, player.y - e.y
-            local pdist = math.sqrt(px * px + py * py)
+            local pdist = sqrt(px * px + py * py)
             if pdist > 0 then
                 bullet.vx = (px / pdist) * 400
                 bullet.vy = (py / pdist) * 400
