@@ -2,10 +2,10 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
-local Game = require("classes.Game")
-local Menu = require("classes.Menu")
-local FontManager = require("classes.FontManager")
-local BackgroundManager = require("classes.BackgroundManager")
+local Game = require("src.scenes.Game")
+local Menu = require("src.scenes.Menu")
+local FontManager = require("src.managers.FontManager")
+local BackgroundManager = require("src.managers.BackgroundManager")
 
 local game, menu, background, fonts
 local gameState = "menu"

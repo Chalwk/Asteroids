@@ -2,8 +2,8 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
-local Enemy = require("classes.Enemy")
-local Asteroid = require("classes.Asteroid")
+local Enemy = require("src.entities.Enemy")
+local Asteroid = require("src.entities.Asteroid")
 
 local lg = love.graphics
 local random = love.math.random
