@@ -1,4 +1,7 @@
--- src/entities/Powerup.lua
+-- Nebula Frontier
+-- License: MIT
+-- Copyright (c) 2025 Jericho Crosby (Chalwk)
+
 local Powerup = {}
 Powerup.__index = Powerup
 

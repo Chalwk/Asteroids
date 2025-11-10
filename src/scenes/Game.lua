@@ -508,6 +508,26 @@ function Game:update(dt)
         self.won = false
     end
 
+    -- Check enemy bullet collisions with player
+    for i = #self.bullets, 1, -1 do
+        local bullet = self.bullets[i]
+        if bullet.enemy and p.invulnerable <= 0 then
+            local dx, dy = bullet.x - p.x, bullet.y - p.y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            if distance < (bullet.size + p.size) then
+                p.lives = p.lives - 1
+                p.invulnerable = 2
+                returnToPool(bulletPool, bullet)
+                remove(self.bullets, i)
+
+                if p.lives <= 0 then
+                    self.gameOver = true
+                    self.won = false
+                end
+            end
+        end
+    end
+
     -- Check bullet collisions with asteroids
     for i = #self.bullets, 1, -1 do
         local bullet = self.bullets[i]
