@@ -11,7 +11,7 @@ local ipairs = ipairs
 local lg = love.graphics
 local random = love.math.random
 local insert = table.insert
-local sin, cos, pi, min, max = math.sin, math.cos, math.pi, math.min, math.max
+local sin, cos, pi, min, max, sqrt, floor = math.sin, math.cos, math.pi, math.min, math.max, math.sqrt, math.floor
 
 local Game = {}
 Game.__index = Game
@@ -191,7 +191,7 @@ local function drawUI(self, time)
     lg.print("HEALTH", healthX + healthW + 8, healthY - 2)
 
     -- Health value text
-    lg.print(math.floor(self.player.health) .. "/" .. self.player.maxHealth, healthX, healthY + healthH + 2)
+    lg.print(floor(self.player.health) .. "/" .. self.player.maxHealth, healthX, healthY + healthH + 2)
 
     -- Boost meter
     local boostPercent = self.player.boostTime / self.player.maxBoostTime
@@ -324,7 +324,7 @@ local function drawPlayer(self, time)
     -- Thrust glow: exaggerated and soft
     if p.speed > 1 or love.keyboard.isDown("w", "up") then
         lg.setBlendMode("add")
-        local t = (math.sin(time * 20) + 1) * 0.5
+        local t = (sin(time * 20) + 1) * 0.5
         local glowSize = p.size * (1 + 0.8 * t + (p.boostTime > 0 and 0.6 or 0))
         lg.setColor(1, 0.6, 0.2, 0.5 + 0.4 * t)
         lg.polygon("fill", -p.size * 0.45, p.size, 0, p.size + glowSize, p.size * 0.45, p.size)
@@ -551,7 +551,7 @@ function Game:update(dt)
         local bullet = bulletManager:getBullets()[i]
         if bullet.enemy and p.invulnerable <= 0 then
             local dx, dy = bullet.x - p.x, bullet.y - p.y
-            local distance = math.sqrt(dx * dx + dy * dy)
+            local distance = sqrt(dx * dx + dy * dy)
             if distance < (bullet.size + p.size) then
                 p.health = p.health - 10 -- Reduce health instead of lives
                 p.invulnerable = 2
