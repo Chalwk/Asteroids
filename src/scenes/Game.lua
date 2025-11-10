@@ -82,51 +82,6 @@ local function wrapPosition(obj, size)
     end
 end
 
-local function createPauseButtons(self)
-    local centerX, centerY = screenWidth * 0.5, screenHeight * 0.5
-
-    self.pauseButtons = {
-        {
-            text = "Resume",
-            action = "resume",
-            x = centerX - 120,
-            y = centerY - 70,
-            width = 240,
-            height = 56,
-            color = { 0.18, 0.72, 0.35 }
-        },
-        {
-            text = "Restart",
-            action = "restart",
-            x = centerX - 120,
-            y = centerY + 2,
-            width = 240,
-            height = 56,
-            color = { 0.95, 0.7, 0.18 }
-        },
-        {
-            text = "Main Menu",
-            action = "menu",
-            x = centerX - 120,
-            y = centerY + 74,
-            width = 240,
-            height = 56,
-            color = { 0.82, 0.28, 0.32 }
-        }
-    }
-end
-
-local function updatePauseButtonHover(self, x, y)
-    self.pauseButtonHover = nil
-    for _, button in ipairs(self.pauseButtons) do
-        if x >= button.x and x <= button.x + button.width and
-            y >= button.y and y <= button.y + button.height then
-            self.pauseButtonHover = button.action
-            return
-        end
-    end
-end
-
 local function drawUI(self, time)
     lg.push()
     lg.setColor(0, 0, 0, 0.35)
@@ -217,12 +172,6 @@ local function drawUI(self, time)
     self.fonts:setFont("smallFont")
     lg.print("Difficulty: " .. self.difficulty:upper(), screenWidth - 200, 20)
     lg.print("Level: " .. self.level, screenWidth - 200, 42)
-
-    if self.paused then
-        lg.setColor(1, 0.95, 0.6, 0.95)
-        self.fonts:setFont("mediumFont")
-        lg.printf("PAUSED - Press P or ESC to resume", 0, screenWidth * 0.5 - 20, screenWidth, "center")
-    end
 end
 
 local function drawGameOver(self, time)
@@ -252,43 +201,6 @@ local function drawGameOver(self, time)
         lg.circle("fill", x, y, s)
     end
     lg.setBlendMode("alpha")
-end
-
-local function drawPauseMenu(self)
-    lg.setColor(0, 0, 0, 0.7)
-    lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
-
-    lg.setColor(1, 1, 1)
-    self.fonts:setFont("largeFont")
-    lg.printf("PAUSED", 0, screenHeight * 0.3, screenWidth, "center")
-
-    for _, button in ipairs(self.pauseButtons) do
-        local isHovered = self.pauseButtonHover == button.action
-        local r, g, b = unpack(button.color)
-
-        -- nice elevated button with rim highlight
-        lg.setColor(r, g, b, isHovered and 0.96 or 0.78)
-        lg.rectangle("fill", button.x, button.y, button.width, button.height, 10)
-
-        lg.setColor(1, 1, 1, isHovered and 0.98 or 0.82)
-        lg.setLineWidth(isHovered and 3 or 2)
-        lg.rectangle("line", button.x, button.y, button.width, button.height, 10)
-
-        -- subtle inner glow if hovered
-        if isHovered then
-            lg.setBlendMode("add")
-            lg.setColor(r, g, b, 0.06)
-            lg.rectangle("fill", button.x + 6, button.y + 6, button.width - 12, button.height - 12, 8)
-            lg.setBlendMode("alpha")
-        end
-
-        lg.setColor(1, 1, 1)
-        self.fonts:setFont("mediumFont")
-        local textWidth = self.fonts:getFont("mediumFont"):getWidth(button.text)
-        local textHeight = self.fonts:getFont("mediumFont"):getHeight()
-        lg.print(button.text, button.x + (button.width - textWidth) * 0.5, button.y + (button.height - textHeight) * 0.5)
-    end
-    lg.setLineWidth(1)
 end
 
 local function drawPlayer(self, time)
@@ -393,7 +305,6 @@ function Game.new(fontManager)
 
     createPlayer(instance)
     createStarField(instance)
-    createPauseButtons(instance)
 
     asteroidManager:spawn(4 + instance.level, 1, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
 
@@ -404,17 +315,9 @@ function Game:isGameOver() return self.gameOver end
 
 function Game:isPaused() return self.paused end
 
-function Game:setPaused(paused)
-    self.paused = paused
-    if paused then
-        updatePauseButtonHover(self, love.mouse.getX(), love.mouse.getY())
-    end
-end
+function Game:setPaused(paused) self.paused = paused end
 
-function Game:screenResize()
-    createPauseButtons(self)
-    createStarField(self)
-end
+function Game:screenResize() createStarField(self) end
 
 function Game:startNewGame(difficulty)
     self.difficulty = difficulty or "medium"
@@ -436,18 +339,7 @@ function Game:startNewGame(difficulty)
     asteroidManager:spawn(4 + self.level, 1, self.player.x, self.player.y)
 end
 
-function Game:handleClick()
-    if self.gameOver or self.paused then return end
-end
-
-function Game:handlePauseClick(x, y)
-    for _, button in ipairs(self.pauseButtons) do
-        if x >= button.x and x <= button.x + button.width and
-            y >= button.y and y <= button.y + button.height then
-            return button.action
-        end
-    end
-end
+function Game:handleClick() if self.gameOver or self.paused then return end end
 
 function Game:update(dt)
     if self.paused or self.gameOver then return end
@@ -656,11 +548,7 @@ function Game:draw(time)
     drawPlayer(self, time)
     drawUI(self, time)
 
-    if self.gameOver then
-        drawGameOver(self, time)
-    elseif self.paused then
-        drawPauseMenu(self)
-    end
+    if self.gameOver then drawGameOver(self, time) end
 
     lg.pop()
 end

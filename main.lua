@@ -77,6 +77,9 @@ function love.draw()
         menu:draw(gameState)
     elseif gameState == "playing" then
         game:draw(time)
+        if game:isPaused() and not game:isGameOver() then
+            menu:draw("pause")
+        end
     end
 
     -- Draw transition overlay
@@ -111,15 +114,16 @@ function love.mousepressed(x, y, button, istouch)
             if game:isGameOver() then
                 startStateTransition("menu")
             else
+                -- Add this: Handle pause menu clicks
                 if game:isPaused() then
-                    local action = game:handlePauseClick(x, y)
+                    local action = menu:handleClick(x, y, "pause")
                     if action == "resume" then
                         game:setPaused(false)
-                    elseif action == "menu" then
-                        startStateTransition("menu")
                     elseif action == "restart" then
                         game:startNewGame(menu:getDifficulty())
                         game:setPaused(false)
+                    elseif action == "menu" then
+                        startStateTransition("menu")
                     end
                 else
                     game:handleClick(x, y)

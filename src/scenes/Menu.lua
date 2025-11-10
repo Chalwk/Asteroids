@@ -10,6 +10,11 @@ local BUTTON_DATA = {
         { text = "Ship Systems",     action = "options", width = 260, height = 55, color = { 0.5, 0.6, 0.9 } },
         { text = "Abort Mission",    action = "quit",    width = 260, height = 55, color = { 0.9, 0.4, 0.3 } }
     },
+    PAUSE = {
+        { text = "Resume",    action = "resume",  width = 240, height = 56, color = { 0.18, 0.72, 0.35 } },
+        { text = "Restart",   action = "restart", width = 240, height = 56, color = { 0.95, 0.7, 0.18 } },
+        { text = "Main Menu", action = "menu",    width = 240, height = 56, color = { 0.82, 0.28, 0.32 } }
+    },
     OPTIONS = {
         DIFFICULTY = {
             { text = "Cadet", action = "diff easy",   width = 110, height = 40, color = { 0.5, 0.9, 0.5 } },
@@ -59,6 +64,73 @@ local LAYOUT = {
 local function initButton(button, x, y, section)
     button.x, button.y, button.section = x, y, section
     return button
+end
+
+local function createPauseButtons(self)
+    local centerX, centerY = screenWidth * 0.5, screenHeight * 0.5
+    self.pauseButtons = {}
+
+    for i, data in ipairs(BUTTON_DATA.PAUSE) do
+        self.pauseButtons[i] = {
+            text = data.text,
+            action = data.action,
+            x = centerX - 120,
+            y = centerY - 70 + (i - 1) * 76,
+            width = data.width,
+            height = data.height,
+            color = data.color
+        }
+    end
+end
+
+local function updatePauseButtonPositions(self)
+    local centerX, centerY = screenWidth * 0.5, screenHeight * 0.5
+    for i, button in ipairs(self.pauseButtons) do
+        button.x = centerX - 120
+        button.y = centerY - 70 + (i - 1) * 76
+    end
+end
+
+local function drawPauseMenu(self)
+    -- Semi-transparent overlay
+    lg.setColor(0, 0, 0, 0.7)
+    lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
+
+    -- Title
+    lg.setColor(1, 1, 1)
+    self.fonts:setFont("largeFont")
+    lg.printf("PAUSED", 0, screenHeight * 0.3, screenWidth, "center")
+
+    -- Buttons
+    for _, button in ipairs(self.pauseButtons) do
+        local isHovered = self.buttonHover == button.action
+        local r, g, b = unpack(button.color)
+
+        -- Button background
+        lg.setColor(r, g, b, isHovered and 0.96 or 0.78)
+        lg.rectangle("fill", button.x, button.y, button.width, button.height, 10)
+
+        -- Button border
+        lg.setColor(1, 1, 1, isHovered and 0.98 or 0.82)
+        lg.setLineWidth(isHovered and 3 or 2)
+        lg.rectangle("line", button.x, button.y, button.width, button.height, 10)
+
+        -- Inner glow when hovered
+        if isHovered then
+            lg.setBlendMode("add")
+            lg.setColor(r, g, b, 0.06)
+            lg.rectangle("fill", button.x + 6, button.y + 6, button.width - 12, button.height - 12, 8)
+            lg.setBlendMode("alpha")
+        end
+
+        -- Button text
+        lg.setColor(1, 1, 1)
+        self.fonts:setFont("mediumFont")
+        local textWidth = self.fonts:getFont("mediumFont"):getWidth(button.text)
+        local textHeight = self.fonts:getFont("mediumFont"):getHeight()
+        lg.print(button.text, button.x + (button.width - textWidth) * 0.5, button.y + (button.height - textHeight) * 0.5)
+    end
+    lg.setLineWidth(1)
 end
 
 local function updateOptionsButtonPositions(self)
@@ -285,8 +357,11 @@ function Menu.new(fontManager)
     instance.time = 0
     instance.buttonHover = nil
     instance.fonts = fontManager
+
     createMenuButtons(instance)
     createOptionsButtons(instance)
+    createPauseButtons(instance)
+
     return instance
 end
 
@@ -306,55 +381,86 @@ end
 
 function Menu:updateButtonHover(x, y)
     self.buttonHover = nil
-    local buttons = self.showHelp and {} or (self.state == "options" and self.optionsButtons or self.menuButtons)
+    local buttons = {}
+
+    if self.showHelp then
+        -- No buttons when help is shown
+    elseif self.state == "pause" then
+        buttons = self.pauseButtons
+    elseif self.state == "options" then
+        buttons = self.optionsButtons
+    else
+        buttons = self.menuButtons
+    end
+
     for _, button in ipairs(buttons) do
         if x >= button.x and x <= button.x + button.width and y >= button.y and y <= button.y + button.height then
             self.buttonHover = button.action
             return
         end
     end
-    if not self.showHelp and self.helpButton and
-        x >= self.helpButton.x and x <= self.helpButton.x + self.helpButton.width and
-        y >= self.helpButton.y and y <= self.helpButton.y + self.helpButton.height then
-        self.buttonHover = "help"
+
+    -- Help button (only in main menu)
+    if self.state == "menu" and not self.showHelp and self.helpButton then
+        if x >= self.helpButton.x and x <= self.helpButton.x + self.helpButton.width and
+            y >= self.helpButton.y and y <= self.helpButton.y + self.helpButton.height then
+            self.buttonHover = "help"
+        end
     end
 end
 
 function Menu:draw(state)
     self.state = state
-    drawGameTitle(self)
-    if state == "menu" then
-        if self.showHelp then
-            drawHelpOverlay(self)
-        else
-            for _, button in ipairs(self.menuButtons) do drawButton(self, button) end
-            lg.setColor(0.9, 0.9, 0.9, 0.8)
-            self.fonts:setFont("mediumFont")
-            lg.printf(self.title.subtitle, 0, screenHeight * 0.20, screenWidth, "center")
-            drawHelpButton(self)
+
+    if state == "pause" then
+        drawPauseMenu(self)
+    else
+        drawGameTitle(self)
+
+        if state == "menu" then
+            if self.showHelp then
+                drawHelpOverlay(self)
+            else
+                for _, button in ipairs(self.menuButtons) do drawButton(self, button) end
+                lg.setColor(0.9, 0.9, 0.9, 0.8)
+                self.fonts:setFont("mediumFont")
+                lg.printf(self.title.subtitle, 0, screenHeight * 0.20, screenWidth, "center")
+                drawHelpButton(self)
+            end
+        elseif state == "options" then
+            updateOptionsButtonPositions(self)
+            local startY = (screenHeight - LAYOUT.TOTAL_SECTIONS_HEIGHT) * 0.5
+            lg.setColor(1, 0.7, 0.3)
+            self.fonts:setFont("sectionFont")
+            lg.printf("Select Flight Difficulty", 0, startY, screenWidth, "center")
+            drawOptionSection(self, "difficulty")
+            drawOptionSection(self, "navigation")
         end
-    elseif state == "options" then
-        updateOptionsButtonPositions(self)
-        local startY = (screenHeight - LAYOUT.TOTAL_SECTIONS_HEIGHT) * 0.5
-        lg.setColor(1, 0.7, 0.3)
-        self.fonts:setFont("sectionFont")
-        lg.printf("Select Flight Difficulty", 0, startY, screenWidth, "center")
-        drawOptionSection(self, "difficulty")
-        drawOptionSection(self, "navigation")
     end
+
     lg.setColor(1, 1, 1, 0.6)
     self.fonts:setFont("smallFont")
     lg.printf("© 2025 Jericho Crosby - Nebular Frontier", 10, screenHeight - 30, screenWidth - 20, "right")
 end
 
 function Menu:handleClick(x, y, state)
-    local buttons = state == "menu" and self.menuButtons or self.optionsButtons
+    local buttons = {}
+
+    if state == "pause" then
+        buttons = self.pauseButtons
+    elseif state == "menu" then
+        buttons = self.menuButtons
+    elseif state == "options" then
+        buttons = self.optionsButtons
+    end
+
     for _, button in ipairs(buttons) do
         if x >= button.x and x <= button.x + button.width and
             y >= button.y and y <= button.y + button.height then
             return button.action
         end
     end
+
     if state == "menu" then
         if self.helpButton and x >= self.helpButton.x and x <= self.helpButton.x + self.helpButton.width and
             y >= self.helpButton.y and y <= self.helpButton.y + self.helpButton.height then
@@ -366,6 +472,7 @@ function Menu:handleClick(x, y, state)
             return "help_close"
         end
     end
+
     return nil
 end
 
@@ -376,6 +483,7 @@ function Menu:getDifficulty() return self.difficulty end
 function Menu:screenResize()
     updateButtonPositions(self)
     updateOptionsButtonPositions(self)
+    updatePauseButtonPositions(self)
 end
 
 return Menu
