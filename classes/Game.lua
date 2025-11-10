@@ -33,7 +33,7 @@ end
 
 local function createStarField(self)
     self.stars = {}
-    for i = 1, 200 do
+    for _ = 1, 200 do
         insert(self.stars, {
             x = random(0, screenWidth),
             y = random(0, screenHeight),
@@ -44,7 +44,7 @@ local function createStarField(self)
     end
 end
 
-local function createAsteroid(self, x, y, size, level)
+local function createAsteroid(x, y, size, level)
     local speed = random(50, 150) / (level or 1)
     local angle = random() * pi * 2
 
@@ -75,17 +75,6 @@ local function generateAsteroidShape(asteroid)
     end
 
     asteroid.vertices = vertices
-end
-
-local function createBullet(player)
-    return {
-        x = player.x + math.sin(player.angle) * 20,
-        y = player.y - math.cos(player.angle) * 20,
-        vx = math.sin(player.angle) * 500,
-        vy = -math.cos(player.angle) * 500,
-        life = 2,
-        size = 3
-    }
 end
 
 local function createPowerup(x, y)
@@ -152,8 +141,8 @@ local function wrapPosition(obj)
 end
 
 local function spawnAsteroids(self, count, level)
-    for i = 1, count do
-        local asteroid = createAsteroid(self, nil, nil, nil, level)
+    for _ = 1, count do
+        local asteroid = createAsteroid(nil, nil, nil, level)
         generateAsteroidShape(asteroid)
 
         -- Ensure asteroids spawn away from player
@@ -470,7 +459,7 @@ function Game:startNewGame(difficulty)
     spawnAsteroids(self, 4 + self.level, 1)
 end
 
-function Game:handleClick(x, y)
+function Game:handleClick()
     if self.gameOver or self.paused then return end
 end
 
@@ -701,8 +690,8 @@ function Game:update(dt)
 
                     if asteroid.level < 3 then
                         -- Break into smaller asteroids
-                        for k = 1, 2 do
-                            local newAsteroid = createAsteroid(self, asteroid.x, asteroid.y, asteroid.size * 0.6,
+                        for _ = 1, 2 do
+                            local newAsteroid = createAsteroid(asteroid.x, asteroid.y, asteroid.size * 0.6,
                                 asteroid.level + 1)
                             newAsteroid.vx = newAsteroid.vx + (random() - 0.5) * 100
                             newAsteroid.vy = newAsteroid.vy + (random() - 0.5) * 100
@@ -752,10 +741,10 @@ function Game:update(dt)
         end
     end
 
-    self:updateButtonHover(love.mouse.getX(), love.mouse.getY())
+    self:updateButtonHover()
 end
 
-function Game:updateButtonHover(x, y)
+function Game:updateButtonHover()
     self.buttonHover = nil
     if self.gameOver or self.paused then return end
 end

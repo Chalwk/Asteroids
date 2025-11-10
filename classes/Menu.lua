@@ -2,7 +2,7 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
-local ipairs, math_sin, math_floor = ipairs, math.sin, math.floor
+local ipairs, sin = ipairs, math.sin
 
 local BUTTON_DATA = {
     MENU = {
@@ -152,7 +152,7 @@ end
 
 local function drawButton(self, button)
     local isHovered = self.buttonHover == button.action
-    local pulse = math_sin(self.time * 6) * 0.1 + 0.9
+    local pulse = sin(self.time * 6) * 0.1 + 0.9
 
     -- Button background
     lg.setColor(button.color[1], button.color[2], button.color[3], isHovered and 0.9 or 0.7)
@@ -186,7 +186,7 @@ end
 local function drawHelpButton(self)
     local button = self.helpButton
     local isHovered = self.buttonHover == "help"
-    local pulse = math_sin(self.time * 5) * 0.2 + 0.8
+    local pulse = sin(self.time * 5) * 0.2 + 0.8
     local centerX, centerY = button.x + button.width * 0.5, button.y + button.height * 0.5
 
     -- Button background
@@ -332,7 +332,7 @@ function Menu:update(dt)
 
     -- Title animation
     self.title.scale = self.title.scale + self.title.scaleDirection * self.title.scaleSpeed * dt
-    self.title.glow = math_sin(self.time * 3) * 0.3 + 0.7
+    self.title.glow = sin(self.time * 3) * 0.3 + 0.7
 
     if self.title.scale > self.title.maxScale then
         self.title.scale, self.title.scaleDirection = self.title.maxScale, -1
