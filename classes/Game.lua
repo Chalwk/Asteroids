@@ -18,7 +18,7 @@ local PLAYER_SPAWN_Y
 local bulletPool = {}
 local asteroidPool = {}
 local powerupPool = {}
-local emepyPool = {}
+local enemyPool = {}
 
 local function getFromPool(pool) return #pool > 0 and remove(pool) or {} end
 
@@ -49,14 +49,21 @@ local function createPlayer(self)
 end
 
 local function createStarField(self)
+    -- layered starfield: slower layers in the distance, brighter ones close
     self.stars = {}
-    for i = 1, 200 do
+    for i = 1, 220 do
+        local layer = (i % 3) + 1
         self.stars[i] = {
             x = random(0, screenWidth),
             y = random(0, screenHeight),
-            speed = random(50, 200),
-            size = random(1, 3),
-            brightness = random(0.3, 1)
+            layer = layer,
+            size = layer == 1 and random(0.8, 1.2)
+                or layer == 2 and random(1.2, 2.0)
+                or random(2.0, 3.0),
+            brightness = layer == 1 and random(0.1, 0.3)
+                or layer == 2 and random(0.3, 0.6)
+                or random(0.6, 1.0),
+            twinkle = random() * 2
         }
     end
 end
@@ -106,7 +113,7 @@ local function createPowerup(x, y)
     }
 end
 
-local function createEmepy(self)
+local function createenemy(self)
     local side = random(1, 4)
     local x, y
 
@@ -185,29 +192,29 @@ local function createPauseButtons(self)
         {
             text = "Resume",
             action = "resume",
-            x = centerX - 100,
-            y = centerY - 60,
-            width = 200,
-            height = 50,
-            color = { 0.2, 0.7, 0.3 }
+            x = centerX - 120,
+            y = centerY - 70,
+            width = 240,
+            height = 56,
+            color = { 0.18, 0.72, 0.35 }
         },
         {
             text = "Restart",
             action = "restart",
-            x = centerX - 100,
-            y = centerY + 10,
-            width = 200,
-            height = 50,
-            color = { 0.9, 0.7, 0.2 }
+            x = centerX - 120,
+            y = centerY + 2,
+            width = 240,
+            height = 56,
+            color = { 0.95, 0.7, 0.18 }
         },
         {
             text = "Main Menu",
             action = "menu",
-            x = centerX - 100,
-            y = centerY + 80,
-            width = 200,
-            height = 50,
-            color = { 0.8, 0.3, 0.3 }
+            x = centerX - 120,
+            y = centerY + 74,
+            width = 240,
+            height = 56,
+            color = { 0.82, 0.28, 0.32 }
         }
     }
 end
@@ -223,62 +230,97 @@ local function updatePauseButtonHover(self, x, y)
     end
 end
 
-local function drawUI(self)
-    -- Score
-    lg.setColor(1, 1, 1, 0.9)
-    self.fonts:setFont("mediumFont")
-    lg.print("SCORE: " .. self.player.score, 20, 20)
+local function drawUI(self, time)
+    -- HUD background
+    lg.push()
+    lg.setColor(0, 0, 0, 0.35)
+    lg.rectangle("fill", 12, 12, 280, 120, 8)
+    lg.setColor(1, 1, 1, 0.06)
+    lg.rectangle("line", 12, 12, 280, 120, 8)
+    lg.pop()
 
-    -- Lives
+    -- Score
+    lg.setColor(1, 1, 1, 0.95)
+    self.fonts:setFont("mediumFont")
+    lg.print("SCORE", 24, 24)
+    self.fonts:setFont("largeFont")
+    lg.print(tostring(self.player.score), 24, 48)
+
+    -- Lives (stylized ships)
     for i = 1, self.player.lives do
-        lg.setColor(1, 1, 1, 0.8)
+        local lx = 220 + (i - 1) * 36
+        local ly = 36
         lg.push()
-        lg.translate(20 + (i - 1) * 30, 60)
-        lg.rotate(-HALF_PI)
+        lg.translate(lx, ly)
+        lg.rotate(-HALF_PI + 0.12 * sin(time * 8 + i))
+        lg.setColor(1, 1, 1, 0.95)
         lg.polygon("fill", 0, -8, -6, 8, 6, 8)
+        lg.setColor(0, 0, 0, 0.6)
+        lg.polygon("line", 0, -8, -6, 8, 6, 8)
         lg.pop()
     end
 
-    -- Boost meter
+    -- Boost meter with glowing bar
     local boostPercent = self.player.boostTime / self.player.maxBoostTime
-    local boostWidth = 200
-    lg.setColor(0.3, 0.3, 0.5, 0.7)
-    lg.rectangle("fill", 20, 90, boostWidth, 15)
-    lg.setColor(0.2, 0.6, 1, 0.9)
-    lg.rectangle("fill", 20, 90, boostWidth * boostPercent, 15)
-    lg.setColor(1, 1, 1, 0.8)
-    lg.rectangle("line", 20, 90, boostWidth, 15)
+    local boostX, boostY, boostW, boostH = 24, 96, 240, 12
 
-    -- Difficulty and Level
-    lg.setColor(1, 1, 1, 0.6)
+    lg.setColor(0.12, 0.12, 0.18, 0.6)
+    lg.rectangle("fill", boostX, boostY, boostW, boostH, 6)
+    lg.setBlendMode("add", "premultiplied")
+    lg.setColor(0.12, 0.6, 1, 0.8)
+    lg.rectangle("fill", boostX, boostY, boostW * boostPercent, boostH, 6)
+    -- soft glow overlay
+    lg.setColor(0.12, 0.6, 1, 0.12 + 0.12 * sin(time * 6))
+    lg.rectangle("fill", boostX - 4, boostY - 6, (boostW * boostPercent) + 8, boostH + 12, 8)
+    lg.setBlendMode("alpha")
+
+    lg.setColor(1, 1, 1, 0.85)
     self.fonts:setFont("smallFont")
-    lg.print("Difficulty: " .. self.difficulty:upper(), screenWidth - 150, 20)
-    lg.print("Level: " .. self.level, screenWidth - 150, 45)
+    lg.print("BOOST", boostX + boostW + 8, boostY - 2)
+
+    -- Difficulty and Level (top-right)
+    lg.setColor(1, 1, 1, 0.8)
+    self.fonts:setFont("smallFont")
+    lg.print("Difficulty: " .. self.difficulty:upper(), screenWidth - 200, 20)
+    lg.print("Level: " .. self.level, screenWidth - 200, 42)
 
     if self.paused then
-        lg.setColor(1, 0.8, 0.2, 0.9)
+        lg.setColor(1, 0.95, 0.6, 0.95)
         self.fonts:setFont("mediumFont")
-        lg.print("PAUSED - Press P or ESC to resume", screenWidth * 0.5 - 150, 40)
+        lg.printf("PAUSED - Press P or ESC to resume", 0, screenWidth * 0.5 - 20, screenWidth, "center")
     end
 end
 
-local function drawGameOver(self)
-    lg.setColor(0, 0, 0, 0.7)
+local function drawGameOver(self, time)
+    lg.setColor(0, 0, 0, 0.75)
     lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
 
     self.fonts:setFont("largeFont")
-    lg.setColor(self.won and { 0.2, 0.8, 0.2 } or { 0.8, 0.2, 0.2 })
-    lg.printf(self.won and "MISSION COMPLETE!" or "GAME OVER", 0, screenHeight / 2 - 80, screenWidth, "center")
+    lg.setColor(self.won and { 0.2, 0.95, 0.2 } or { 0.95, 0.2, 0.25 })
+    lg.printf(self.won and "MISSION COMPLETE!" or "GAME OVER", 0, screenHeight / 2 - 100, screenWidth, "center")
 
-    lg.setColor(1, 1, 1)
+    lg.setColor(1, 1, 1, 0.95)
     self.fonts:setFont("mediumFont")
-    lg.printf("FINAL SCORE: " .. self.player.score, 0, screenHeight / 2, screenWidth, "center")
+    lg.printf("FINAL SCORE: " .. self.player.score, 0, screenHeight / 2 - 30, screenWidth, "center")
 
     self.fonts:setFont("smallFont")
-    lg.printf("Click anywhere to continue", 0, screenHeight / 2 + 60, screenWidth, "center")
+    lg.printf("Click anywhere to continue", 0, screenHeight / 2 + 30, screenWidth, "center")
+
+    -- small animated particle ring for celebration / defeat
+    lg.setBlendMode("add")
+    for i = 1, 16 do
+        local a = (time * 2 + i) % TWO_PI
+        local r = 120 + sin(time * 3 + i) * 12
+        local x = screenWidth * 0.5 + cos(a) * r
+        local y = screenHeight * 0.5 + sin(a) * r
+        local s = 2 + (sin(time * 5 + i) + 1) * 1.5
+        lg.setColor(1, 1, 0.7, 0.08 + 0.06 * sin(time * 7 + i))
+        lg.circle("fill", x, y, s)
+    end
+    lg.setBlendMode("alpha")
 end
 
-local function drawPauseMenu(self)
+local function drawPauseMenu(self, time)
     lg.setColor(0, 0, 0, 0.7)
     lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
 
@@ -290,12 +332,21 @@ local function drawPauseMenu(self)
         local isHovered = self.pauseButtonHover == button.action
         local r, g, b = unpack(button.color)
 
-        lg.setColor(r, g, b, isHovered and 0.9 or 0.7)
+        -- nice elevated button with rim highlight
+        lg.setColor(r, g, b, isHovered and 0.96 or 0.78)
         lg.rectangle("fill", button.x, button.y, button.width, button.height, 10)
 
-        lg.setColor(1, 1, 1, isHovered and 1 or 0.8)
+        lg.setColor(1, 1, 1, isHovered and 0.98 or 0.82)
         lg.setLineWidth(isHovered and 3 or 2)
         lg.rectangle("line", button.x, button.y, button.width, button.height, 10)
+
+        -- subtle inner glow if hovered
+        if isHovered then
+            lg.setBlendMode("add")
+            lg.setColor(r, g, b, 0.06)
+            lg.rectangle("fill", button.x + 6, button.y + 6, button.width - 12, button.height - 12, 8)
+            lg.setBlendMode("alpha")
+        end
 
         lg.setColor(1, 1, 1)
         self.fonts:setFont("mediumFont")
@@ -315,24 +366,29 @@ local function drawPlayer(self, time)
     lg.translate(p.x, p.y)
     lg.rotate(p.angle)
 
-    -- Main ship body
-    lg.setColor(0.8, 0.9, 1)
-    lg.polygon("fill", 0, -p.size, -p.size * 0.7, p.size, p.size * 0.7, p.size)
+    -- Ship body: filled with soft gradient illusion via two draws
+    lg.setColor(0.86, 0.92, 1)
+    lg.polygon("fill", 0, -p.size, -p.size * 0.75, p.size, p.size * 0.75, p.size)
+    lg.setColor(0.06, 0.08, 0.12, 0.6)
+    lg.setLineWidth(2)
+    lg.polygon("line", 0, -p.size, -p.size * 0.75, p.size, p.size * 0.75, p.size)
 
-    -- Engine effects
-    if p.speed > 0 then
-        local glowSize = p.size * 0.8 * (0.8 + sin(time * 10) * 0.2)
-        lg.setColor(1, 0.6, 0.2, 0.8)
-        lg.polygon("fill", -p.size * 0.4, p.size, 0, p.size + glowSize, p.size * 0.4, p.size)
-    end
-
-    if p.boostTime > 0 then
-        local boostSize = p.size * 1.5 * (0.9 + sin(time * 15) * 0.1)
-        lg.setColor(0.2, 0.8, 1, 0.7)
-        lg.polygon("fill", -p.size * 0.3, p.size, 0, p.size + boostSize, p.size * 0.3, p.size)
+    -- Thrust glow (additive) if thrusting or moving
+    if p.speed > 1 or love.keyboard.isDown("w", "up") then
+        lg.setBlendMode("add")
+        local t = (sin(time * 20) + 1) * 0.5
+        local glowSize = p.size * (1 + 0.6 * t + (p.boostTime > 0 and 0.6 or 0))
+        lg.setColor(1, 0.55, 0.25, 0.65 + 0.25 * t)
+        lg.polygon("fill", -p.size * 0.45, p.size, 0, p.size + glowSize, p.size * 0.45, p.size)
+        if p.boostTime > 0 then
+            lg.setColor(0.2, 0.75, 1, 0.45 + 0.2 * t)
+            lg.polygon("fill", -p.size * 0.28, p.size, 0, p.size + glowSize * 1.2, p.size * 0.28, p.size)
+        end
+        lg.setBlendMode("alpha")
     end
 
     lg.pop()
+    lg.setLineWidth(1)
 end
 
 local function drawAsteroids(self)
@@ -341,77 +397,180 @@ local function drawAsteroids(self)
         lg.translate(asteroid.x, asteroid.y)
         lg.rotate(asteroid.rotation)
 
-        lg.setColor(0.7, 0.6, 0.5)
-        lg.polygon("line", asteroid.vertices)
-        lg.setColor(0.4, 0.35, 0.3, 0.3)
+        -- Fill base
+        lg.setColor(0.48, 0.44, 0.38, 0.9)
         lg.polygon("fill", asteroid.vertices)
+
+        -- Subtle inner shadow: smaller scaled polygon in multiply-ish effect
+        lg.setColor(0, 0, 0, 0.08)
+        local darkVerts = {}
+        for i = 1, #asteroid.vertices, 2 do
+            local vx, vy = asteroid.vertices[i] * 0.86, asteroid.vertices[i + 1] * 0.86
+            table.insert(darkVerts, vx - 2)
+            table.insert(darkVerts, vy + 2)
+        end
+        lg.polygon("fill", darkVerts)
+
+        -- Outline
+        lg.setColor(0.2, 0.18, 0.16)
+        lg.setLineWidth(2)
+        lg.polygon("line", asteroid.vertices)
 
         lg.pop()
     end
+    lg.setLineWidth(1)
 end
 
-local function drawBullets(self)
+local function drawBullets(self, time)
     for _, bullet in ipairs(self.bullets) do
-        lg.setColor(1, 1, 0.5)
+        -- additive glow core
+        lg.setBlendMode("add")
+        lg.setColor(1, 0.9, 0.45, 0.8)
+        lg.circle("fill", bullet.x, bullet.y, bullet.size * 2.2)
+        lg.setColor(1, 0.85, 0.2, 0.6)
+        lg.circle("fill", bullet.x, bullet.y, bullet.size * 1.1)
+        lg.setBlendMode("alpha")
+
+        -- crisp core
+        lg.setColor(1, 0.95, 0.7)
         lg.circle("fill", bullet.x, bullet.y, bullet.size)
-        lg.setColor(1, 0.8, 0.2)
+        lg.setColor(1, 0.8, 0.15)
         lg.circle("line", bullet.x, bullet.y, bullet.size)
     end
+    lg.setLineWidth(1)
+    lg.setBlendMode("alpha")
 end
 
-local function drawPowerups(self)
+local function drawPowerups(self, time)
     for _, powerup in ipairs(self.powerups) do
         lg.push()
         lg.translate(powerup.x, powerup.y)
         lg.rotate(powerup.rotation)
 
-        if powerup.type == "boost" then
-            lg.setColor(0.2, 0.6, 1)
-            lg.rectangle("fill", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size, powerup.size, 3)
-        elseif powerup.type == "shield" then
-            lg.setColor(0.2, 1, 0.4)
-            lg.circle("fill", 0, 0, powerup.size)
-        elseif powerup.type == "rapid" then
-            lg.setColor(1, 0.3, 0.3)
-            lg.polygon("fill", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size * 0.5, 0, -powerup.size * 0.5,
-                powerup.size * 0.5)
-        end
+        -- subtle pulsing
+        local pulse = 1 + 0.08 * sin(time * 6 + powerup.x * 0.01)
 
-        lg.setColor(1, 1, 1, 0.8)
         if powerup.type == "boost" then
+            lg.setBlendMode("add")
+            lg.setColor(0.15, 0.55, 1, 0.65)
+            lg.rectangle("fill", -powerup.size * 0.5 * pulse, -powerup.size * 0.5 * pulse, powerup.size * pulse,
+                powerup.size * pulse, 4)
+            lg.setBlendMode("alpha")
+            lg.setColor(0.2, 0.6, 1)
             lg.rectangle("line", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size, powerup.size, 3)
         elseif powerup.type == "shield" then
+            lg.setBlendMode("add")
+            lg.setColor(0.12, 1, 0.45, 0.55)
+            lg.circle("fill", 0, 0, powerup.size * pulse)
+            lg.setBlendMode("alpha")
+            lg.setColor(0.12, 1, 0.45)
             lg.circle("line", 0, 0, powerup.size)
-        else
+        elseif powerup.type == "rapid" then
+            lg.setBlendMode("add")
+            lg.setColor(1, 0.35, 0.35, 0.6)
+            lg.polygon("fill", -powerup.size * 0.5 * pulse, -powerup.size * 0.5 * pulse, powerup.size * 0.5 * pulse, 0,
+                -powerup.size * 0.5 * pulse,
+                powerup.size * 0.5 * pulse)
+            lg.setBlendMode("alpha")
+            lg.setColor(1, 0.3, 0.3)
             lg.polygon("line", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size * 0.5, 0, -powerup.size * 0.5,
                 powerup.size * 0.5)
         end
 
+        lg.setColor(1, 1, 1, 0.9)
         lg.pop()
     end
 end
 
-local function drawEmepy(self)
-    for _, emepy in ipairs(self.emepy) do
+local function drawEnemy(self, time)
+    for _, e in ipairs(self.enemy) do
         lg.push()
-        lg.translate(emepy.x, emepy.y)
-        lg.rotate(emepy.rotation)
+        lg.translate(e.x, e.y)
+        lg.rotate(e.rotation)
 
-        lg.setColor(1, 0.3, 0.3)
-        lg.polygon("fill", 0, -emepy.size, -emepy.size, emepy.size, emepy.size, emepy.size)
+        -- Base hue shifts slightly with time for alien feel
+        local pulse = 0.6 + 0.4 * sin(time * 4 + e.x * 0.05)
+        local coreHue = { 0.6 + 0.2 * pulse, 0.1 + 0.3 * pulse, 0.9 - 0.2 * pulse }
 
-        lg.setColor(1, 0.6, 0.2, 0.7)
-        lg.polygon("fill", -emepy.size * 0.3, emepy.size, 0, emepy.size * 1.5, emepy.size * 0.3, emepy.size)
+        -- Main hull: glowing diamond-like shape
+        local s = e.size
+        local hull = {
+            0, -s * 1.2,        -- top tip
+            -s * 0.8, -s * 0.3, -- left upper
+            -s * 0.9, s * 0.8,  -- left bottom
+            0, s * 1.0,         -- bottom tip
+            s * 0.9, s * 0.8,   -- right bottom
+            s * 0.8, -s * 0.3   -- right upper
+        }
+
+        -- Hull fill with subtle color shift
+        lg.setColor(coreHue[1], coreHue[2], coreHue[3], 0.9)
+        lg.polygon("fill", hull)
+
+        -- Outer edge shimmer
+        lg.setBlendMode("add")
+        lg.setColor(0.4 + 0.3 * pulse, 0.8 * pulse, 1, 0.4)
+        lg.polygon("line", hull)
+        lg.setBlendMode("alpha")
+
+        -- Cockpit dome (center glow)
+        lg.setBlendMode("add")
+        lg.setColor(0.2, 1, 0.7, 0.5 + 0.3 * pulse)
+        lg.circle("fill", 0, -s * 0.3, s * 0.35 + 1.5 * pulse)
+        lg.setBlendMode("alpha")
+
+        -- Thruster glow behind
+        lg.setBlendMode("add")
+        local thrusterSize = s * (0.8 + 0.3 * sin(time * 10 + e.y))
+        lg.setColor(1, 0.4, 0.1, 0.6 + 0.2 * sin(time * 8 + e.x))
+        lg.circle("fill", 0, s * 1.2, thrusterSize * 0.4)
+        lg.setBlendMode("alpha")
+
+        -- Aggression indicator ring (based on health)
+        if e.health <= 1 then
+            lg.setBlendMode("add")
+            lg.setColor(1, 0.2, 0.2, 0.3 + 0.2 * pulse)
+            lg.circle("line", 0, 0, s * 1.6 + 2 * sin(time * 6))
+            lg.setBlendMode("alpha")
+        end
+
+        -- Outline for clarity
+        lg.setColor(0.1, 0.05, 0.05, 0.9)
+        lg.setLineWidth(2)
+        lg.polygon("line", hull)
+        lg.setLineWidth(1)
 
         lg.pop()
     end
+    lg.setBlendMode("alpha")
 end
 
-local function drawStarField(self)
+local function drawStarField(self, time)
+    -- draw layered starfield with gentle parallax and twinkle
+    -- background haze
+    lg.setColor(0.02, 0.04, 0.08, 0.22)
+    lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
+
     for _, star in ipairs(self.stars) do
-        lg.setColor(1, 1, 1, star.brightness * 0.8)
-        lg.circle("fill", star.x, star.y, star.size)
+        -- twinkle effect
+        local tw = star.brightness * (0.6 + 0.4 * sin(time * (0.6 + star.twinkle)))
+        local px = star.x
+        local py = star.y
+
+        -- parallax motion already applied in update; draw glow for larger stars
+        if star.size > 2.2 then
+            lg.setBlendMode("add")
+            lg.setColor(1, 1, 1, 0.06 * tw)
+            lg.circle("fill", px, py, star.size * 3.2)
+            lg.setColor(1, 1, 1, 0.12 * tw)
+            lg.circle("fill", px, py, star.size * 1.8)
+            lg.setBlendMode("alpha")
+        end
+
+        lg.setColor(1, 1, 1, 0.6 * tw)
+        lg.circle("fill", px, py, star.size)
     end
+    lg.setBlendMode("alpha")
 end
 
 function Game.new(fontManager)
@@ -429,10 +588,10 @@ function Game.new(fontManager)
     instance.asteroids = {}
     instance.bullets = {}
     instance.powerups = {}
-    instance.emepy = {}
+    instance.enemy = {}
     instance.particles = {}
     instance.waveCooldown = 0
-    instance.emepySpawnCooldown = 0
+    instance.enemySpawnCooldown = 0
 
     createPlayer(instance)
     createStarField(instance)
@@ -470,12 +629,12 @@ function Game:startNewGame(difficulty)
     for _, obj in ipairs(self.asteroids) do returnToPool(asteroidPool, obj) end
     for _, obj in ipairs(self.bullets) do returnToPool(bulletPool, obj) end
     for _, obj in ipairs(self.powerups) do returnToPool(powerupPool, obj) end
-    for _, obj in ipairs(self.emepy) do returnToPool(emepyPool, obj) end
+    for _, obj in ipairs(self.enemy) do returnToPool(enemyPool, obj) end
 
     self.asteroids = {}
     self.bullets = {}
     self.powerups = {}
-    self.emepy = {}
+    self.enemy = {}
     self.particles = {}
 
     createPlayer(self)
@@ -611,19 +770,19 @@ function Game:update(dt)
         end
     end
 
-    -- Update Emepy
-    self.emepySpawnCooldown = self.emepySpawnCooldown - dt
-    if self.emepySpawnCooldown <= 0 then
-        local emepy = getFromPool(emepyPool)
-        local newEmepy = createEmepy(self)
-        for k, v in pairs(newEmepy) do emepy[k] = v end
-        insert(self.emepy, emepy)
+    -- Update enemy
+    self.enemySpawnCooldown = self.enemySpawnCooldown - dt
+    if self.enemySpawnCooldown <= 0 then
+        local enemy = getFromPool(enemyPool)
+        local newenemy = createenemy(self)
+        for k, v in pairs(newenemy) do enemy[k] = v end
+        insert(self.enemy, enemy)
 
-        self.emepySpawnCooldown = 15 - (self.difficulty == "easy" and 5 or self.difficulty == "medium" and 2 or 0)
+        self.enemySpawnCooldown = 15 - (self.difficulty == "easy" and 5 or self.difficulty == "medium" and 2 or 0)
     end
 
-    for i = #self.emepy, 1, -1 do
-        local e = self.emepy[i]
+    for i = #self.enemy, 1, -1 do
+        local e = self.enemy[i]
 
         -- Movement
         local dx, dy = p.x - e.x, p.y - e.y
@@ -669,8 +828,8 @@ function Game:update(dt)
                         for k, v in pairs(newPowerup) do powerup[k] = v end
                         insert(self.powerups, powerup)
                     end
-                    returnToPool(emepyPool, e)
-                    remove(self.emepy, i)
+                    returnToPool(enemyPool, e)
+                    remove(self.enemy, i)
                     break
                 end
             end
@@ -679,8 +838,8 @@ function Game:update(dt)
         if p.invulnerable <= 0 and checkCollision(p, e) then
             p.lives = p.lives - 1
             p.invulnerable = 2
-            returnToPool(emepyPool, e)
-            remove(self.emepy, i)
+            returnToPool(enemyPool, e)
+            remove(self.enemy, i)
 
             if p.lives <= 0 then
                 self.gameOver = true
@@ -740,30 +899,24 @@ function Game:update(dt)
         end
     end
 
-    -- Update star field
-    local speedFactor = p.speed / 300
-    local moveX = -sin_angle * speedFactor * dt
-    local moveY = cos_angle * speedFactor * dt
+    -- Star field: parallax scrolling
+    local scrollSpeed = p.speed * dt
+    local moveX = sin(p.angle) * scrollSpeed
+    local moveY = -cos(p.angle) * scrollSpeed
 
     for _, star in ipairs(self.stars) do
-        star.x = star.x + moveX * star.speed
-        star.y = star.y + moveY * star.speed
+        local factor = star.layer == 1 and 0.15 or star.layer == 2 and 0.4 or 0.8
+        star.x = star.x - moveX * factor
+        star.y = star.y - moveY * factor
 
-        if star.x < -10 then
-            star.x = screenWidth + 10
-        elseif star.x > screenWidth + 10 then
-            star.x = -10
-        end
-
-        if star.y < -10 then
-            star.y = screenHeight + 10
-        elseif star.y > screenHeight + 10 then
-            star.y = -10
-        end
+        if star.x < 0 then star.x = star.x + screenWidth end
+        if star.x > screenWidth then star.x = star.x - screenWidth end
+        if star.y < 0 then star.y = star.y + screenHeight end
+        if star.y > screenHeight then star.y = star.y - screenHeight end
     end
 
     -- Check level completion
-    if #self.asteroids == 0 and #self.emepy == 0 then
+    if #self.asteroids == 0 and #self.enemy == 0 then
         self.level = self.level + 1
         spawnAsteroids(self, 4 + self.level, 1)
 
@@ -777,18 +930,18 @@ end
 function Game:draw(time)
     lg.push()
 
-    drawStarField(self)
+    drawStarField(self, time)
     drawAsteroids(self)
-    drawPowerups(self)
-    drawEmepy(self)
-    drawBullets(self)
+    drawPowerups(self, time)
+    drawEnemy(self, time)
+    drawBullets(self, time)
     drawPlayer(self, time)
-    drawUI(self)
+    drawUI(self, time)
 
     if self.gameOver then
-        drawGameOver(self)
+        drawGameOver(self, time)
     elseif self.paused then
-        drawPauseMenu(self)
+        drawPauseMenu(self, time)
     end
 
     lg.pop()

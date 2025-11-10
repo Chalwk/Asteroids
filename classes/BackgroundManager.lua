@@ -1,4 +1,4 @@
--- Nebula Frontier
+-- Asteroid Field
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
@@ -9,31 +9,39 @@ local sin, cos, pi = math.sin, math.cos, math.pi
 local BackgroundManager = {}
 BackgroundManager.__index = BackgroundManager
 
-local function initFloatingShapes(self)
-    self.shapes = {}
+local function initObjects(self)
+    self.objects = {}
 
-    for _ = 1, 40 do
+    -- Create stars
+    for _ = 1, 200 do
+        self.objects[#self.objects + 1] = {
+            type = "star",
+            x = random(0, 1000),
+            y = random(0, 1000),
+            size = random(1, 3),
+            alpha = random() * 0.8 + 0.2,
+            twinkleSpeed = random(1, 4)
+        }
+    end
+
+    -- Create drifting asteroid fragments
+    for _ = 1, 25 do
         local size = random(10, 40)
-        local speed = random(0.5, 2)
-        local bob = random(2, 6)
-        local rotSpeed = (random() - 0.5) * 1.5
-        local alpha = random() * 0.3 + 0.2
-
-        self.shapes[#self.shapes + 1] = {
+        local speed = random(10, 40)
+        self.objects[#self.objects + 1] = {
+            type = "asteroid",
             x = random(0, 1000),
             y = random(0, 1000),
             size = size,
-            speedX = (random() - 0.5) * 30,
-            speedY = (random() - 0.5) * 30,
-            bobSpeed = speed,
-            bobAmount = bob,
+            speedX = (random() - 0.5) * speed,
+            speedY = (random() - 0.5) * speed,
             rotation = random() * pi * 2,
-            rotationSpeed = rotSpeed,
-            alpha = alpha,
+            rotationSpeed = (random() - 0.5) * 0.8,
+            alpha = random() * 0.3 + 0.4,
             color = {
-                random(60, 100) / 255,
-                random(80, 150) / 255,
-                random(120, 200) / 255
+                random(90, 160) / 255,
+                random(90, 160) / 255,
+                random(90, 160) / 255
             }
         }
     end
@@ -42,87 +50,85 @@ end
 function BackgroundManager.new()
     local instance = setmetatable({}, BackgroundManager)
     instance.time = 0
-    initFloatingShapes(instance)
+    initObjects(instance)
     return instance
 end
 
 function BackgroundManager:update(dt)
     self.time = self.time + dt
 
-    for _, s in ipairs(self.shapes) do
-        s.x = s.x + s.speedX * dt
-        s.y = s.y + s.speedY * dt
-        s.rotation = s.rotation + s.rotationSpeed * dt
-        s.y = s.y + sin(self.time * s.bobSpeed) * s.bobAmount * dt
+    for _, obj in ipairs(self.objects) do
+        if obj.type == "asteroid" then
+            obj.x = obj.x + obj.speedX * dt
+            obj.y = obj.y + obj.speedY * dt
+            obj.rotation = obj.rotation + obj.rotationSpeed * dt
 
-        -- Wrap edges
-        if s.x < -50 then
-            s.x = 1050
-        elseif s.x > 1050 then
-            s.x = -50
+            -- Wrap edges
+            if obj.x < -50 then
+                obj.x = 1050
+            elseif obj.x > 1050 then
+                obj.x = -50
+            end
+            if obj.y < -50 then
+                obj.y = 1050
+            elseif obj.y > 1050 then
+                obj.y = -50
+            end
         end
-        if s.y < -50 then
-            s.y = 1050
-        elseif s.y > 1050 then
-            s.y = -50
-        end
-    end
-end
-
-local function drawGradient(width, height, baseR, baseG, baseB, var)
-    for y = 0, height, 2 do
-        local progress = y / height
-        local wave = sin(progress * 6 + var) * 0.05
-        lg.setColor(
-            baseR + wave,
-            baseG + progress * 0.1 + wave,
-            baseB + progress * 0.2 + wave,
-            1
-        )
-        lg.rectangle("fill", 0, y, width, 2)
     end
 end
 
 function BackgroundManager:drawMenuBackground()
     local t = self.time
-    drawGradient(screenWidth, screenHeight, 0.05, 0.03, 0.12, t)
-
-    for _, s in ipairs(self.shapes) do
-        local bobOffset = sin(t * s.bobSpeed) * s.bobAmount
-        lg.push()
-        lg.translate(s.x, s.y + bobOffset)
-        lg.rotate(s.rotation)
-        lg.setColor(s.color[1], s.color[2], s.color[3], s.alpha)
-        lg.circle("fill", 0, 0, s.size)
-        lg.pop()
-    end
-
-    lg.setColor(1, 1, 1, (sin(t * 2) + 1) * 0.05)
+    -- Deep space background
+    lg.setColor(0.0, 0.0, 0.02, 1)
     lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
+
+    for _, obj in ipairs(self.objects) do
+        if obj.type == "star" then
+            local twinkle = (sin(t * obj.twinkleSpeed + obj.x) + 1) * 0.5
+            lg.setColor(1, 1, 1, obj.alpha * twinkle)
+            lg.circle("fill", obj.x, obj.y, obj.size)
+        elseif obj.type == "asteroid" then
+            lg.push()
+            lg.translate(obj.x, obj.y)
+            lg.rotate(obj.rotation)
+            lg.setColor(obj.color[1], obj.color[2], obj.color[3], obj.alpha)
+            lg.polygon("line",
+                -obj.size * 0.6, -obj.size * 0.4,
+                obj.size * 0.8, -obj.size * 0.3,
+                obj.size * 0.6, obj.size * 0.5,
+                -obj.size * 0.5, obj.size * 0.6
+            )
+            lg.pop()
+        end
+    end
 end
 
 function BackgroundManager:drawGameBackground()
     local t = self.time
-    drawGradient(screenWidth, screenHeight, 0.02, 0.01, 0.08, t * 0.5)
+    -- Darker space during gameplay
+    lg.setColor(0, 0, 0.015, 1)
+    lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
 
-    lg.setColor(0.2, 0.25, 0.3, 0.1)
-    local gridSize = 80
-    local offset = sin(t * 0.3) * 10
-    for x = -offset, screenWidth + offset, gridSize do
-        lg.line(x, 0, x, screenHeight)
-    end
-    for y = -offset, screenHeight + offset, gridSize do
-        lg.line(0, y, screenWidth, y)
-    end
-
-    for _, s in ipairs(self.shapes) do
-        local bobOffset = cos(t * s.bobSpeed) * s.bobAmount
-        lg.push()
-        lg.translate(s.x, s.y + bobOffset)
-        lg.rotate(-s.rotation * 0.5)
-        lg.setColor(s.color[1] * 0.7, s.color[2] * 0.7, s.color[3] * 0.7, s.alpha * 0.6)
-        lg.circle("line", 0, 0, s.size)
-        lg.pop()
+    for _, obj in ipairs(self.objects) do
+        if obj.type == "star" then
+            local twinkle = (sin(t * obj.twinkleSpeed + obj.x * 0.5) + 1) * 0.5
+            lg.setColor(1, 1, 1, obj.alpha * (0.6 + twinkle * 0.4))
+            lg.circle("fill", obj.x, obj.y, obj.size)
+        elseif obj.type == "asteroid" then
+            lg.push()
+            lg.translate(obj.x, obj.y)
+            lg.rotate(obj.rotation)
+            lg.setColor(obj.color[1], obj.color[2], obj.color[3], obj.alpha)
+            lg.polygon("line",
+                -obj.size * 0.5, -obj.size * 0.4,
+                obj.size * 0.7, -obj.size * 0.3,
+                obj.size * 0.5, obj.size * 0.6,
+                -obj.size * 0.4, obj.size * 0.7
+            )
+            lg.pop()
+        end
     end
 end
 
