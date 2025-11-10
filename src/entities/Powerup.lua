@@ -33,7 +33,6 @@ local function createPowerup(x, y)
 end
 
 local function wrapPosition(obj, size)
-    local screenWidth, screenHeight = love.graphics.getDimensions()
     size = size or obj.size
     if obj.x < -size then
         obj.x = screenWidth + size

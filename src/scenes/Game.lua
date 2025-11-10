@@ -194,7 +194,7 @@ local function drawUI(self, time)
 
     -- Boost meter
     local boostPercent = self.player.boostTime / self.player.maxBoostTime
-    local boostX, boostY, boostW, boostH = 24, 165, 240, 12  -- Moved from 120 to 145
+    local boostX, boostY, boostW, boostH = 24, 165, 240, 12 -- Moved from 120 to 145
 
     lg.setColor(0.12, 0.12, 0.18, 0.6)
     lg.rectangle("fill", boostX, boostY, boostW, boostH, 6)
@@ -367,8 +367,8 @@ function Game.new(fontManager)
     instance.waveCooldown = 0
 
     powerupManager = Powerup.new()
-    asteroidManager = Asteroid.new(screenWidth, screenHeight)
-    enemy = Enemy.new(instance.difficulty, screenWidth, screenHeight, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
+    asteroidManager = Asteroid.new()
+    enemy = Enemy.new(instance.difficulty, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
     bulletManager = Bullet.new()
 
     createPlayer(instance)
@@ -492,12 +492,12 @@ function Game:update(dt)
     -- Update asteroids using asteroid manager
     local asteroidCollision = asteroidManager:update(dt, p)
     if asteroidCollision and p.invulnerable <= 0 then
-        p.health = p.health - 25  -- Reduce health instead of lives
+        p.health = p.health - 25 -- Reduce health instead of lives
         p.invulnerable = 2
 
         if p.health <= 0 then
             p.lives = p.lives - 1
-            p.health = p.maxHealth  -- Reset health when losing a life
+            p.health = p.maxHealth -- Reset health when losing a life
         end
 
         if p.lives <= 0 then
@@ -514,12 +514,12 @@ function Game:update(dt)
 
     -- Check enemy collision with player
     if enemy:checkPlayerCollision(p) and p.invulnerable <= 0 then
-        p.health = p.health - 35  -- Reduce health instead of lives
+        p.health = p.health - 35 -- Reduce health instead of lives
         p.invulnerable = 2
 
         if p.health <= 0 then
             p.lives = p.lives - 1
-            p.health = p.maxHealth  -- Reset health when losing a life
+            p.health = p.maxHealth -- Reset health when losing a life
         end
 
         if p.lives <= 0 then
@@ -535,13 +535,13 @@ function Game:update(dt)
             local dx, dy = bullet.x - p.x, bullet.y - p.y
             local distance = math.sqrt(dx * dx + dy * dy)
             if distance < (bullet.size + p.size) then
-                p.health = p.health - 10  -- Reduce health instead of lives
+                p.health = p.health - 10 -- Reduce health instead of lives
                 p.invulnerable = 2
                 bulletManager:removeBullet(i)
 
                 if p.health <= 0 then
                     p.lives = p.lives - 1
-                    p.health = p.maxHealth  -- Reset health when losing a life
+                    p.health = p.maxHealth -- Reset health when losing a life
                 end
 
                 if p.lives <= 0 then

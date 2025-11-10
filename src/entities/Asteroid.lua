@@ -35,11 +35,9 @@ local function generateAsteroidShape(asteroid)
     asteroid.vertices = vertices
 end
 
-function Asteroid.new(screenWidth, screenHeight)
+function Asteroid.new()
     local instance = setmetatable({}, Asteroid)
 
-    instance.screenWidth = screenWidth
-    instance.screenHeight = screenHeight
     instance.asteroids = {}
 
     return instance
@@ -50,8 +48,8 @@ function Asteroid:createAsteroid(x, y, size, level)
     local angle = random() * TWO_PI
 
     local asteroid = {
-        x = x or random(0, self.screenWidth),
-        y = y or random(0, self.screenHeight),
+        x = x or random(0, screenWidth),
+        y = y or random(0, screenHeight),
         vx = cos(angle) * speed,
         vy = sin(angle) * speed,
         size = size or random(30, 80),
@@ -74,8 +72,8 @@ function Asteroid:spawn(count, level, playerX, playerY)
         -- Ensure asteroids spawn away from player
         local minDistSq = 150 * 150
         while self:distanceSquared(asteroid.x, asteroid.y, playerX, playerY) < minDistSq do
-            asteroid.x = random(0, self.screenWidth)
-            asteroid.y = random(0, self.screenHeight)
+            asteroid.x = random(0, screenWidth)
+            asteroid.y = random(0, screenHeight)
         end
 
         generateAsteroidShape(asteroid)
@@ -91,14 +89,14 @@ end
 function Asteroid:wrapPosition(obj, size)
     size = size or obj.size
     if obj.x < -size then
-        obj.x = self.screenWidth + size
-    elseif obj.x > self.screenWidth + size then
+        obj.x = screenWidth + size
+    elseif obj.x > screenWidth + size then
         obj.x = -size
     end
 
     if obj.y < -size then
-        obj.y = self.screenHeight + size
-    elseif obj.y > self.screenHeight + size then
+        obj.y = screenHeight + size
+    elseif obj.y > screenHeight + size then
         obj.y = -size
     end
 end

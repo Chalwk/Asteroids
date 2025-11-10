@@ -23,7 +23,7 @@ local BUTTON_DATA = {
 }
 
 local HELP_TEXT = {
-    "Welcome to Asteroid Blaster!",
+    "Welcome to Nebula Frontier!",
     "",
     "Mission Objectives:",
     "• Destroy asteroids and debris to survive.",
@@ -53,7 +53,7 @@ Menu.__index = Menu
 local LAYOUT = {
     DIFF_BUTTON = { W = 110, H = 40, SPACING = 20 },
     TOTAL_SECTIONS_HEIGHT = 280,
-    HELP_BOX = { W = 650, H = 500, LINE_HEIGHT = 24 }
+    HELP_BOX = { W = 650, H = 600, LINE_HEIGHT = 24 }
 }
 
 local function initButton(button, x, y, section)
@@ -238,7 +238,7 @@ local function drawHelpOverlay(self)
 
     lg.setColor(1, 1, 1)
     self.fonts:setFont("mediumFont")
-    lg.printf("ASTEROID BLASTER - Flight Manual", boxX, boxY + 25, box.W, "center")
+    lg.printf("Nebula Frontier - Flight Manual", boxX, boxY + 25, box.W, "center")
 
     lg.setColor(0.9, 0.9, 0.9)
     self.fonts:setFont("smallFont")

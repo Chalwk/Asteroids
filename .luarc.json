@@ -1,7 +1,7 @@
 {
   "diagnostics.globals": [
     "love",
-        "screenHeight",
-        "screenWidth"
+    "screenHeight",
+    "screenWidth"
   ]
 }
