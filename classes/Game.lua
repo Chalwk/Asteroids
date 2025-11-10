@@ -4,16 +4,33 @@
 
 local lg = love.graphics
 local random = love.math.random
-local sin, cos, pi, atan2 = math.sin, math.cos, math.pi, math.atan2
 local insert, remove = table.insert, table.remove
+local sin, cos, pi, atan2, min, max = math.sin, math.cos, math.pi, math.atan2, math.min, math.max
 
 local Game = {}
 Game.__index = Game
 
+local HALF_PI = pi * 0.5
+local TWO_PI = pi * 2
+local PLAYER_SPAWN_X
+local PLAYER_SPAWN_Y
+
+local bulletPool = {}
+local asteroidPool = {}
+local powerupPool = {}
+local emepyPool = {}
+
+local function getFromPool(pool) return #pool > 0 and remove(pool) or {} end
+
+local function returnToPool(pool, obj)
+    for k in pairs(obj) do obj[k] = nil end
+    insert(pool, obj)
+end
+
 local function createPlayer(self)
     self.player = {
-        x = screenWidth * 0.5,
-        y = screenHeight * 0.5,
+        x = PLAYER_SPAWN_X,
+        y = PLAYER_SPAWN_Y,
         angle = 0,
         speed = 0,
         maxSpeed = 300,
@@ -33,20 +50,20 @@ end
 
 local function createStarField(self)
     self.stars = {}
-    for _ = 1, 200 do
-        insert(self.stars, {
+    for i = 1, 200 do
+        self.stars[i] = {
             x = random(0, screenWidth),
             y = random(0, screenHeight),
             speed = random(50, 200),
             size = random(1, 3),
             brightness = random(0.3, 1)
-        })
+        }
     end
 end
 
 local function createAsteroid(x, y, size, level)
     local speed = random(50, 150) / (level or 1)
-    local angle = random() * pi * 2
+    local angle = random() * TWO_PI
 
     return {
         x = x or random(0, screenWidth),
@@ -54,7 +71,7 @@ local function createAsteroid(x, y, size, level)
         vx = cos(angle) * speed,
         vy = sin(angle) * speed,
         size = size or random(30, 80),
-        rotation = random() * pi * 2,
+        rotation = random() * TWO_PI,
         rotationSpeed = (random() - 0.5) * 2,
         level = level or 1,
         vertices = {}
@@ -66,12 +83,10 @@ local function generateAsteroidShape(asteroid)
     local numPoints = random(8, 12)
 
     for i = 1, numPoints do
-        local angle = (i / numPoints) * pi * 2
+        local angle = (i / numPoints) * TWO_PI
         local distance = asteroid.size * (0.7 + random() * 0.3)
-        local x = cos(angle) * distance
-        local y = sin(angle) * distance
-        insert(vertices, x)
-        insert(vertices, y)
+        insert(vertices, cos(angle) * distance)
+        insert(vertices, sin(angle) * distance)
     end
 
     asteroid.vertices = vertices
@@ -96,21 +111,23 @@ local function createEmepy(self)
     local x, y
 
     if side == 1 then
-        x, y = -50, random(0, screenHeight)              -- left
+        x, y = -50, random(0, screenHeight)
     elseif side == 2 then
-        x, y = screenWidth + 50, random(0, screenHeight) -- right
+        x, y = screenWidth + 50, random(0, screenHeight)
     elseif side == 3 then
-        x, y = random(0, screenWidth), -50               -- top
+        x, y = random(0, screenWidth), -50
     else
-        x, y = random(0, screenWidth), screenHeight + 50 -- bottom
+        x, y = random(0, screenWidth), screenHeight + 50
     end
+
+    local speed = 100 + (self.difficulty == "easy" and 30 or self.difficulty == "medium" and 60 or 90)
 
     return {
         x = x,
         y = y,
-        targetX = screenWidth * 0.5,
-        targetY = screenHeight * 0.5,
-        speed = 100 + (self.difficulty == "easy" and 30 or self.difficulty == "medium" and 60 or 90),
+        targetX = PLAYER_SPAWN_X,
+        targetY = PLAYER_SPAWN_Y,
+        speed = speed,
         size = 25,
         health = 2,
         shootCooldown = 0,
@@ -118,39 +135,45 @@ local function createEmepy(self)
     }
 end
 
-local function distance(x1, y1, x2, y2)
-    return ((x2 - x1) ^ 2 + (y2 - y1) ^ 2) ^ 0.5
+local function distanceSquared(x1, y1, x2, y2)
+    local dx, dy = x2 - x1, y2 - y1
+    return dx * dx + dy * dy
 end
 
 local function checkCollision(a, b)
-    return distance(a.x, a.y, b.x, b.y) < (a.size or a.radius or 0) + (b.size or b.radius or 0)
+    local minDist = (a.size or a.radius or 0) + (b.size or b.radius or 0)
+    return distanceSquared(a.x, a.y, b.x, b.y) < minDist * minDist
 end
 
-local function wrapPosition(obj)
-    if obj.x < -obj.size then
-        obj.x = screenWidth + obj.size
-    elseif obj.x > screenWidth + obj.size then
-        obj.x = -obj.size
+local function wrapPosition(obj, size)
+    size = size or obj.size
+    if obj.x < -size then
+        obj.x = screenWidth + size
+    elseif obj.x > screenWidth + size then
+        obj.x = -size
     end
 
-    if obj.y < -obj.size then
-        obj.y = screenHeight + obj.size
-    elseif obj.y > screenHeight + obj.size then
-        obj.y = -obj.size
+    if obj.y < -size then
+        obj.y = screenHeight + size
+    elseif obj.y > screenHeight + size then
+        obj.y = -size
     end
 end
 
 local function spawnAsteroids(self, count, level)
     for _ = 1, count do
-        local asteroid = createAsteroid(nil, nil, nil, level)
-        generateAsteroidShape(asteroid)
+        local asteroid = getFromPool(asteroidPool)
+        local newAsteroid = createAsteroid(nil, nil, nil, level)
+        for k, v in pairs(newAsteroid) do asteroid[k] = v end
 
         -- Ensure asteroids spawn away from player
-        while distance(asteroid.x, asteroid.y, self.player.x, self.player.y) < 150 do
+        local minDistSq = 150 * 150
+        while distanceSquared(asteroid.x, asteroid.y, self.player.x, self.player.y) < minDistSq do
             asteroid.x = random(0, screenWidth)
             asteroid.y = random(0, screenHeight)
         end
 
+        generateAsteroidShape(asteroid)
         insert(self.asteroids, asteroid)
     end
 end
@@ -211,7 +234,7 @@ local function drawUI(self)
         lg.setColor(1, 1, 1, 0.8)
         lg.push()
         lg.translate(20 + (i - 1) * 30, 60)
-        lg.rotate(-pi * 0.5)
+        lg.rotate(-HALF_PI)
         lg.polygon("fill", 0, -8, -6, 8, 6, 8)
         lg.pop()
     end
@@ -226,12 +249,10 @@ local function drawUI(self)
     lg.setColor(1, 1, 1, 0.8)
     lg.rectangle("line", 20, 90, boostWidth, 15)
 
-    -- Difficulty
+    -- Difficulty and Level
     lg.setColor(1, 1, 1, 0.6)
     self.fonts:setFont("smallFont")
     lg.print("Difficulty: " .. self.difficulty:upper(), screenWidth - 150, 20)
-
-    -- Level
     lg.print("Level: " .. self.level, screenWidth - 150, 45)
 
     if self.paused then
@@ -245,8 +266,7 @@ local function drawGameOver(self)
     lg.setColor(0, 0, 0, 0.7)
     lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
 
-    local font = self.fonts:getFont("largeFont")
-    self.fonts:setFont(font)
+    self.fonts:setFont("largeFont")
     lg.setColor(self.won and { 0.2, 0.8, 0.2 } or { 0.8, 0.2, 0.2 })
     lg.printf(self.won and "MISSION COMPLETE!" or "GAME OVER", 0, screenHeight / 2 - 80, screenWidth, "center")
 
@@ -286,12 +306,10 @@ local function drawPauseMenu(self)
     lg.setLineWidth(1)
 end
 
-local function drawPlayer(self)
+local function drawPlayer(self, time)
     local p = self.player
 
-    if p.invulnerable > 0 and p.invulnerable % 0.2 > 0.1 then
-        return -- Blink effect when invulnerable
-    end
+    if p.invulnerable > 0 and p.invulnerable % 0.2 > 0.1 then return end
 
     lg.push()
     lg.translate(p.x, p.y)
@@ -301,16 +319,15 @@ local function drawPlayer(self)
     lg.setColor(0.8, 0.9, 1)
     lg.polygon("fill", 0, -p.size, -p.size * 0.7, p.size, p.size * 0.7, p.size)
 
-    -- Engine glow
+    -- Engine effects
     if p.speed > 0 then
-        local glowSize = p.size * 0.8 * (0.8 + sin(love.timer.getTime() * 10) * 0.2)
+        local glowSize = p.size * 0.8 * (0.8 + sin(time * 10) * 0.2)
         lg.setColor(1, 0.6, 0.2, 0.8)
         lg.polygon("fill", -p.size * 0.4, p.size, 0, p.size + glowSize, p.size * 0.4, p.size)
     end
 
-    -- Boost effect
     if p.boostTime > 0 then
-        local boostSize = p.size * 1.5 * (0.9 + sin(love.timer.getTime() * 15) * 0.1)
+        local boostSize = p.size * 1.5 * (0.9 + sin(time * 15) * 0.1)
         lg.setColor(0.2, 0.8, 1, 0.7)
         lg.polygon("fill", -p.size * 0.3, p.size, 0, p.size + boostSize, p.size * 0.3, p.size)
     end
@@ -380,11 +397,9 @@ local function drawEmepy(self)
         lg.translate(emepy.x, emepy.y)
         lg.rotate(emepy.rotation)
 
-        -- Enemy ship
         lg.setColor(1, 0.3, 0.3)
         lg.polygon("fill", 0, -emepy.size, -emepy.size, emepy.size, emepy.size, emepy.size)
 
-        -- Engine glow
         lg.setColor(1, 0.6, 0.2, 0.7)
         lg.polygon("fill", -emepy.size * 0.3, emepy.size, 0, emepy.size * 1.5, emepy.size * 0.3, emepy.size)
 
@@ -401,6 +416,9 @@ end
 
 function Game.new(fontManager)
     local instance = setmetatable({}, Game)
+
+    PLAYER_SPAWN_X = screenWidth * 0.5
+    PLAYER_SPAWN_Y = screenHeight * 0.5
 
     instance.fonts = fontManager
     instance.gameOver = false
@@ -420,7 +438,6 @@ function Game.new(fontManager)
     createStarField(instance)
     createPauseButtons(instance)
 
-    -- Spawn initial asteroids
     spawnAsteroids(instance, 4 + instance.level, 1)
 
     return instance
@@ -448,6 +465,12 @@ function Game:startNewGame(difficulty)
     self.won = false
     self.paused = false
     self.level = 1
+
+    -- Return objects to pools
+    for _, obj in ipairs(self.asteroids) do returnToPool(asteroidPool, obj) end
+    for _, obj in ipairs(self.bullets) do returnToPool(bulletPool, obj) end
+    for _, obj in ipairs(self.powerups) do returnToPool(powerupPool, obj) end
+    for _, obj in ipairs(self.emepy) do returnToPool(emepyPool, obj) end
 
     self.asteroids = {}
     self.bullets = {}
@@ -477,67 +500,57 @@ function Game:update(dt)
 
     local p = self.player
 
-    -- Update player invulnerability
-    if p.invulnerable > 0 then
-        p.invulnerable = p.invulnerable - dt
-    end
-
-    -- Update boost
-    if p.boostCooldown > 0 then
-        p.boostCooldown = p.boostCooldown - dt
-    end
-
-    if p.shootCooldown > 0 then
-        p.shootCooldown = p.shootCooldown - dt
-    end
+    -- Update timers
+    if p.invulnerable > 0 then p.invulnerable = p.invulnerable - dt end
+    if p.boostCooldown > 0 then p.boostCooldown = p.boostCooldown - dt end
+    if p.shootCooldown > 0 then p.shootCooldown = p.shootCooldown - dt end
 
     -- Handle rotation
-    if love.keyboard.isDown("a") or love.keyboard.isDown("left") then
+    if love.keyboard.isDown("a", "left") then
         p.angle = p.angle - p.rotationSpeed * dt
     end
-    if love.keyboard.isDown("d") or love.keyboard.isDown("right") then
+    if love.keyboard.isDown("d", "right") then
         p.angle = p.angle + p.rotationSpeed * dt
     end
 
-    local thrusting = love.keyboard.isDown("w") or love.keyboard.isDown("up")
+    -- Movement and boosting
+    local thrusting = love.keyboard.isDown("w", "up")
     local boosting = love.keyboard.isDown("lshift") and p.boostCooldown <= 0 and p.boostTime > 0
 
     if thrusting then
         local acceleration = p.acceleration * (boosting and p.boostPower or 1)
-        p.speed = p.speed + acceleration * dt
-        if p.speed > p.maxSpeed then
-            p.speed = p.maxSpeed
-        end
+        p.speed = min(p.speed + acceleration * dt, p.maxSpeed)
 
         if boosting then
-            p.boostTime = p.boostTime - dt
+            p.boostTime = max(0, p.boostTime - dt)
             if p.boostTime <= 0 then
-                p.boostTime = 0
-                p.boostCooldown = 5 -- 5 second cooldown
+                p.boostCooldown = 5
             end
         end
     else
-        p.speed = p.speed * (1 - dt * 2) -- Friction
+        p.speed = p.speed * (1 - dt * 2)
     end
 
-    -- Corrected movement (upward-facing ship)
-    p.x = p.x + math.sin(p.angle) * p.speed * dt
-    p.y = p.y - math.cos(p.angle) * p.speed * dt
+    -- Movement with pre-calculated trig
+    local sin_angle, cos_angle = sin(p.angle), cos(p.angle)
+    p.x = p.x + sin_angle * p.speed * dt
+    p.y = p.y - cos_angle * p.speed * dt
     wrapPosition(p)
 
     -- Shooting
     if love.keyboard.isDown("space") and p.shootCooldown <= 0 then
-        insert(self.bullets, {
-            x = p.x + math.sin(p.angle) * 20,
-            y = p.y - math.cos(p.angle) * 20,
-            vx = math.sin(p.angle) * 500,
-            vy = -math.cos(p.angle) * 500,
-            life = 2,
-            size = 3
-        })
-        p.shootCooldown = 0.2 -- 5 shots per second
-    end
+        local bullet = getFromPool(bulletPool)
+        bullet.x = p.x + sin_angle * 20
+        bullet.y = p.y - cos_angle * 20
+        bullet.vx = sin_angle * 500
+        bullet.vy = -cos_angle * 500
+        bullet.life = 2
+        bullet.size = 3
+        bullet.enemy = nil
 
+        insert(self.bullets, bullet)
+        p.shootCooldown = 0.2
+    end
 
     -- Update bullets
     for i = #self.bullets, 1, -1 do
@@ -546,9 +559,8 @@ function Game:update(dt)
         bullet.y = bullet.y + bullet.vy * dt
         bullet.life = bullet.life - dt
 
-        if bullet.life <= 0 or
-            bullet.x < -50 or bullet.x > screenWidth + 50 or
-            bullet.y < -50 or bullet.y > screenHeight + 50 then
+        if bullet.life <= 0 or bullet.x < -50 or bullet.x > screenWidth + 50 or bullet.y < -50 or bullet.y > screenHeight + 50 then
+            returnToPool(bulletPool, bullet)
             remove(self.bullets, i)
         end
     end
@@ -561,10 +573,9 @@ function Game:update(dt)
         asteroid.rotation = asteroid.rotation + asteroid.rotationSpeed * dt
         wrapPosition(asteroid)
 
-        -- Check collision with player
         if p.invulnerable <= 0 and checkCollision(p, asteroid) then
             p.lives = p.lives - 1
-            p.invulnerable = 2 -- 2 seconds invulnerability
+            p.invulnerable = 2
 
             if p.lives <= 0 then
                 self.gameOver = true
@@ -584,6 +595,7 @@ function Game:update(dt)
         wrapPosition(powerup)
 
         if powerup.life <= 0 then
+            returnToPool(powerupPool, powerup)
             remove(self.powerups, i)
         elseif checkCollision(p, powerup) then
             if powerup.type == "boost" then
@@ -592,23 +604,28 @@ function Game:update(dt)
             elseif powerup.type == "shield" then
                 p.invulnerable = 5
             elseif powerup.type == "rapid" then
-                p.shootCooldown = 0.1 -- Faster shooting for 10 seconds
+                p.shootCooldown = 0.1
             end
+            returnToPool(powerupPool, powerup)
             remove(self.powerups, i)
         end
     end
 
-    -- Update Emepy AI
+    -- Update Emepy
     self.emepySpawnCooldown = self.emepySpawnCooldown - dt
     if self.emepySpawnCooldown <= 0 then
-        insert(self.emepy, createEmepy(self))
+        local emepy = getFromPool(emepyPool)
+        local newEmepy = createEmepy(self)
+        for k, v in pairs(newEmepy) do emepy[k] = v end
+        insert(self.emepy, emepy)
+
         self.emepySpawnCooldown = 15 - (self.difficulty == "easy" and 5 or self.difficulty == "medium" and 2 or 0)
     end
 
     for i = #self.emepy, 1, -1 do
         local e = self.emepy[i]
 
-        -- Move towards player
+        -- Movement
         local dx, dy = p.x - e.x, p.y - e.y
         local dist = (dx * dx + dy * dy) ^ 0.5
         if dist > 0 then
@@ -620,43 +637,49 @@ function Game:update(dt)
         e.y = e.y + e.vy * dt
         e.rotation = atan2(e.vy, e.vx)
 
+        -- Shooting
         e.shootCooldown = e.shootCooldown - dt
         if e.shootCooldown <= 0 then
-            -- Emepy shooting logic
-            insert(self.bullets, {
-                x = e.x,
-                y = e.y,
-                vx = cos(e.rotation) * 400,
-                vy = sin(e.rotation) * 400,
-                life = 3,
-                size = 4,
-                enemy = true
-            })
+            local bullet = getFromPool(bulletPool)
+            bullet.x = e.x
+            bullet.y = e.y
+            bullet.vx = cos(e.rotation) * 400
+            bullet.vy = sin(e.rotation) * 400
+            bullet.life = 3
+            bullet.size = 4
+            bullet.enemy = true
+
+            insert(self.bullets, bullet)
             e.shootCooldown = 1.5 - (self.difficulty == "hard" and 0.5 or 0)
         end
 
-        -- Check collision with player bullets
+        -- Check collisions
         for j = #self.bullets, 1, -1 do
             local bullet = self.bullets[j]
             if not bullet.enemy and checkCollision(e, bullet) then
                 e.health = e.health - 1
+                returnToPool(bulletPool, bullet)
                 remove(self.bullets, j)
 
                 if e.health <= 0 then
                     p.score = p.score + 200
-                    remove(self.emepy, i)
                     if random() < 0.3 then
-                        insert(self.powerups, createPowerup(e.x, e.y))
+                        local powerup = getFromPool(powerupPool)
+                        local newPowerup = createPowerup(e.x, e.y)
+                        for k, v in pairs(newPowerup) do powerup[k] = v end
+                        insert(self.powerups, powerup)
                     end
+                    returnToPool(emepyPool, e)
+                    remove(self.emepy, i)
                     break
                 end
             end
         end
 
-        -- Check collision with player
         if p.invulnerable <= 0 and checkCollision(p, e) then
             p.lives = p.lives - 1
             p.invulnerable = 2
+            returnToPool(emepyPool, e)
             remove(self.emepy, i)
 
             if p.lives <= 0 then
@@ -666,14 +689,14 @@ function Game:update(dt)
         end
     end
 
-    -- Check bullet-asteroid collisions
+    -- Check bullet collisions
     for i = #self.bullets, 1, -1 do
         local bullet = self.bullets[i]
         if bullet.enemy then
-            -- Enemy bullet vs player
             if p.invulnerable <= 0 and checkCollision(p, bullet) then
                 p.lives = p.lives - 1
                 p.invulnerable = 2
+                returnToPool(bulletPool, bullet)
                 remove(self.bullets, i)
 
                 if p.lives <= 0 then
@@ -682,17 +705,17 @@ function Game:update(dt)
                 end
             end
         else
-            -- Player bullet vs asteroids
             for j = #self.asteroids, 1, -1 do
                 local asteroid = self.asteroids[j]
                 if checkCollision(bullet, asteroid) then
                     p.score = p.score + (4 - asteroid.level) * 25
 
                     if asteroid.level < 3 then
-                        -- Break into smaller asteroids
                         for _ = 1, 2 do
-                            local newAsteroid = createAsteroid(asteroid.x, asteroid.y, asteroid.size * 0.6,
+                            local newAsteroid = getFromPool(asteroidPool)
+                            local created = createAsteroid(asteroid.x, asteroid.y, asteroid.size * 0.6,
                                 asteroid.level + 1)
+                            for k, v in pairs(created) do newAsteroid[k] = v end
                             newAsteroid.vx = newAsteroid.vx + (random() - 0.5) * 100
                             newAsteroid.vy = newAsteroid.vy + (random() - 0.5) * 100
                             generateAsteroidShape(newAsteroid)
@@ -701,10 +724,15 @@ function Game:update(dt)
                     end
 
                     if random() < 0.2 then
-                        insert(self.powerups, createPowerup(asteroid.x, asteroid.y))
+                        local powerup = getFromPool(powerupPool)
+                        local newPowerup = createPowerup(asteroid.x, asteroid.y)
+                        for k, v in pairs(newPowerup) do powerup[k] = v end
+                        insert(self.powerups, powerup)
                     end
 
+                    returnToPool(asteroidPool, asteroid)
                     remove(self.asteroids, j)
+                    returnToPool(bulletPool, bullet)
                     remove(self.bullets, i)
                     break
                 end
@@ -712,10 +740,14 @@ function Game:update(dt)
         end
     end
 
-    -- Update star field (parallax effect based on player movement)
+    -- Update star field
+    local speedFactor = p.speed / 300
+    local moveX = -sin_angle * speedFactor * dt
+    local moveY = cos_angle * speedFactor * dt
+
     for _, star in ipairs(self.stars) do
-        star.x = star.x - p.speed * math.sin(p.angle) * dt * (star.speed / 300)
-        star.y = star.y + p.speed * math.cos(p.angle) * dt * (star.speed / 300)
+        star.x = star.x + moveX * star.speed
+        star.y = star.y + moveY * star.speed
 
         if star.x < -10 then
             star.x = screenWidth + 10
@@ -740,25 +772,17 @@ function Game:update(dt)
             self.won = true
         end
     end
-
-    self:updateButtonHover()
 end
 
-function Game:updateButtonHover()
-    self.buttonHover = nil
-    if self.gameOver or self.paused then return end
-end
-
-function Game:draw()
+function Game:draw(time)
     lg.push()
 
-    -- Draw game elements
     drawStarField(self)
     drawAsteroids(self)
     drawPowerups(self)
     drawEmepy(self)
     drawBullets(self)
-    drawPlayer(self)
+    drawPlayer(self, time)
     drawUI(self)
 
     if self.gameOver then

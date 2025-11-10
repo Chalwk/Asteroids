@@ -77,7 +77,7 @@ function love.draw()
     if gameState == "menu" or gameState == "options" then
         menu:draw(gameState)
     elseif gameState == "playing" then
-        game:draw()
+        game:draw(time)
     end
 
     -- Draw transition overlay
