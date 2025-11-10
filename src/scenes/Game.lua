@@ -387,7 +387,7 @@ function Game.new(fontManager)
 
     soundManager = SoundManager.new()
     powerupManager = Powerup.new()
-    asteroidManager = Asteroid.new()
+    asteroidManager = Asteroid.new(soundManager)
     enemy = Enemy.new(instance.difficulty, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, soundManager)
     bulletManager = Bullet.new()
 
@@ -582,6 +582,10 @@ function Game:update(dt)
                 local asteroid = asteroidManager:getAsteroids()[j]
                 if asteroidManager:checkCollision(bullet, asteroid) then
                     p.score = p.score + (4 - asteroid.level) * 25
+                    soundManager:play("asteroid_explosion")
+
+                    -- Create dust particles for the main asteroid destruction
+                    asteroidManager:createDustParticles(asteroid.x, asteroid.y, asteroid.size, random(12, 20))
 
                     if asteroid.level < 3 then
                         for _ = 1, 2 do
@@ -590,12 +594,18 @@ function Game:update(dt)
                             newAsteroid.vx = newAsteroid.vx + (random() - 0.5) * 100
                             newAsteroid.vy = newAsteroid.vy + (random() - 0.5) * 100
                             insert(asteroidManager:getAsteroids(), newAsteroid)
+
+                            -- Create fewer dust particles for smaller asteroid fragments
+                            asteroidManager:createDustParticles(
+                                asteroid.x,
+                                asteroid.y,
+                                asteroid.size * 0.6,
+                                random(5, 10)
+                            )
                         end
                     end
 
-                    if random() < 0.2 then
-                        powerupManager:spawn(asteroid.x, asteroid.y)
-                    end
+                    if random() < 0.2 then powerupManager:spawn(asteroid.x, asteroid.y) end
 
                     asteroidManager:removeAsteroid(j)
                     bulletManager:removeBullet(i)
