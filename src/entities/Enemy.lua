@@ -585,7 +585,7 @@ function Enemy:draw(time)
         lg.rotate(e.rotation)
 
         -- Base color pulse for alien vibe
-        local pulse = 0.6 + 0.4 * math.sin(time * 4 + e.x * 0.05)
+        local pulse = 0.6 + 0.4 * sin(time * 4 + e.x * 0.05)
         local coreColor = { 0.6 + 0.2 * pulse, 0.2 + 0.3 * pulse, 0.9 - 0.3 * pulse }
 
         -- Behavior-based color shifts
@@ -628,8 +628,8 @@ function Enemy:draw(time)
 
         -- Thruster: rounded and soft
         lg.setBlendMode("add")
-        local thrusterSize = s * (0.8 + 0.3 * math.sin(time * 10 + e.y))
-        lg.setColor(1, 0.5, 0.15, 0.6 + 0.2 * math.sin(time * 8 + e.x))
+        local thrusterSize = s * (0.8 + 0.3 * sin(time * 10 + e.y))
+        lg.setColor(1, 0.5, 0.15, 0.6 + 0.2 * sin(time * 8 + e.x))
         lg.circle("fill", 0, s * 0.9, thrusterSize * 0.5)
         lg.setBlendMode("alpha")
 
@@ -637,7 +637,7 @@ function Enemy:draw(time)
         if e.health <= 1 then
             lg.setBlendMode("add")
             lg.setColor(1, 0.2, 0.2, 0.35 + 0.25 * pulse)
-            lg.circle("line", 0, 0, s * 1.5 + 2 * math.sin(time * 6))
+            lg.circle("line", 0, 0, s * 1.5 + 2 * sin(time * 6))
             lg.setBlendMode("alpha")
         end
 
