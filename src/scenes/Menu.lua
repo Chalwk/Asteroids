@@ -270,7 +270,7 @@ end
 
 function Menu.new(fontManager)
     local instance = setmetatable({}, Menu)
-    instance.difficulty = "medium"
+    instance.difficulty = "easy"
     instance.title = {
         text = "NEBULAR FRONTIER",
         subtitle = "Classic Space Shooter",
