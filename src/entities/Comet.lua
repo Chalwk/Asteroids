@@ -1,4 +1,7 @@
--- src/entities/Comet.lua
+-- Nebula Frontier
+-- License: MIT
+-- Copyright (c) 2025 Jericho Crosby (Chalwk)
+
 local lg = love.graphics
 local random = love.math.random
 local sin, cos = math.sin, math.cos
@@ -145,7 +148,6 @@ function Comet:draw(time)
         lg.setBlendMode("add")
         for _, particle in ipairs(comet.tailParticles) do
             local alpha = particle.life / 1.5
-            local scale = particle.life
             local tailLength = particle.size * 2 + random() * 4
             local angle = atan2(-comet.vy, -comet.vx) + (random() - 0.5) * 0.5 -- slight wobble
 
