@@ -68,7 +68,7 @@ function Asteroid:createAsteroid(x, y, size, level)
 end
 
 function Asteroid:createDustParticles(x, y, size, count)
-    for i = 1, count do
+    for _ = 1, count do
         local particle = getFromPool(particlePool)
 
         local angle = random() * TWO_PI
