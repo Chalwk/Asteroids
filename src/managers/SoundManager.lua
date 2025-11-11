@@ -20,7 +20,7 @@ function SoundManager.new()
             --nebula_spawn = love.audio.newSource(path .. "nebula_spawn.wav", "static"),
             --blackhole_spawn = love.audio.newSource(path .. "blackhole_spawn.wav", "static"),
             --blackhole_collision = love.audio.newSource(path .. "blackhole_collision.wav", "static"),
-        }
+        },
     }, SoundManager)
 
 
