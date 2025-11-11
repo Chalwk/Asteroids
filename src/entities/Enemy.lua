@@ -755,7 +755,7 @@ function Enemy:reset()
     for _, spark in ipairs(self.sparks) do returnToPool(sparkPool, spark) end
     self.enemies = {}
     self.sparks = {}
-    self.spawnCooldown = 0
+    self.spawnCooldown = 15 - (self.difficulty == "easy" and 5 or self.difficulty == "medium" and 2 or 0)
 end
 
 function Enemy:getCount() return #self.enemies end

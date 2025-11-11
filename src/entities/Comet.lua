@@ -17,8 +17,8 @@ function Comet.new(soundManager)
     local instance = setmetatable({}, Comet)
     instance.comets = {}
     instance.soundManager = soundManager
-    instance.spawnTimer = 0
     instance.spawnInterval = 30
+    instance.spawnTimer = instance.spawnInterval + random(-5, 5)
     return instance
 end
 
@@ -80,7 +80,7 @@ function Comet:update(dt, player)
     if self.spawnTimer <= 0 then
         self.spawnTimer = self.spawnInterval + random(-5, 5) -- Add some randomness
         insert(self.comets, self:createComet())
-        --self.soundManager:play("comet_spawn")
+        self.soundManager:play("comet_spawn")
     end
 
     -- Update existing comets
@@ -191,7 +191,7 @@ end
 
 function Comet:clearAll()
     self.comets = {}
-    self.spawnTimer = 0
+    self.spawnTimer = self.spawnInterval + random(-5, 5)
 end
 
 return Comet

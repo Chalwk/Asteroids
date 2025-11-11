@@ -436,8 +436,8 @@ end
 function Environment:clearAll()
     self.nebulas = {}
     self.blackholes = {}
-    self.nebulaSpawnTimer = 0
-    self.blackholeSpawnTimer = 0
+    self.nebulaSpawnTimer = CONFIG.nebula.spawnInterval + random(-10, 10)
+    self.blackholeSpawnTimer = CONFIG.blackhole.spawnInterval + random(-20, 20)
 end
 
 function Environment:screenResize()

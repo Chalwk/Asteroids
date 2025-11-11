@@ -16,6 +16,7 @@ function SoundManager.new()
             enemy_bullet = love.audio.newSource(path .. "laser-312360.mp3", "static"),
             ambience = love.audio.newSource(path .. "ambient-soundscapes-004-space-atmosphere-303243.mp3", "stream"),
             asteroid_explosion = love.audio.newSource(path .. "explosion-312361.mp3", "static"),
+            comet_spawn = love.audio.newSource(path .. "swish-swoosh-woosh-sfx-55-357153.mp3", "static"),
             --nebula_spawn = love.audio.newSource(path .. "nebula_spawn.wav", "static"),
             --blackhole_spawn = love.audio.newSource(path .. "blackhole_spawn.wav", "static"),
             --blackhole_collision = love.audio.newSource(path .. "blackhole_collision.wav", "static"),
