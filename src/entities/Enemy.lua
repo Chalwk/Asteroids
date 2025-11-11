@@ -5,8 +5,13 @@
 local pairs, ipairs = pairs, ipairs
 local lg = love.graphics
 local random = love.math.random
+local noise = love.math.noise
+
 local insert, remove = table.insert, table.remove
 local sin, cos, atan2, pi, sqrt = math.sin, math.cos, math.atan2, math.pi, math.sqrt
+local min, max = math.min, math.max
+local floor = math.floor
+local abs = math.abs
 
 local Enemy = {}
 Enemy.__index = Enemy
@@ -578,73 +583,171 @@ function Enemy:draw(time)
         lg.pop()
     end
 
-    -- Draw enemies
+    -- Draw enemies (saucers)
     for _, e in ipairs(self.enemies) do
         lg.push()
         lg.translate(e.x, e.y)
         lg.rotate(e.rotation)
 
-        -- Base color pulse for alien vibe
+        local s = e.size                       -- base radius
+        local spin = time * (0.6 + (s * 0.02)) -- base spin for rings
         local pulse = 0.6 + 0.4 * sin(time * 4 + e.x * 0.05)
-        local coreColor = { 0.6 + 0.2 * pulse, 0.2 + 0.3 * pulse, 0.9 - 0.3 * pulse }
+        local noiseVal = (noise(e.x * 0.01, e.y * 0.01, time * 0.25) - 0.5) * 0.6
 
-        -- Behavior-based color shifts
+        -- Core color influenced by behavior and noise
+        local coreR, coreG, coreB = 0.55 + 0.25 * pulse, 0.2 + 0.3 * pulse, 0.9 - 0.35 * pulse
         if e.behavior == BEHAVIOR_STATES.EVADE then
-            coreColor = { 0.9, 0.3, 0.3 } -- red alert
+            coreR, coreG, coreB = 0.95, 0.35, 0.35
         elseif e.behavior == BEHAVIOR_STATES.SWARM then
-            coreColor = { 0.3, 0.7, 1 }   -- friendly blue
+            coreR, coreG, coreB = 0.35, 0.75, 1
         end
+        -- nudge by noise
+        coreR = max(0, min(1, coreR + noiseVal * 0.5))
+        coreG = max(0, min(1, coreG + noiseVal * 0.3))
+        coreB = max(0, min(1, coreB - noiseVal * 0.4))
 
-        local s = e.size
+        -- subtle shadow below the saucer
+        lg.setColor(0, 0, 0, 0.25)
+        lg.ellipse("fill", 0, s * 0.95, s * 1.15, s * 0.35)
 
-        -- Hull: rounded, bulbous shape
-        lg.setColor(coreColor[1], coreColor[2], coreColor[3], 0.95)
-        lg.polygon("fill",
-            0, -s, -- nose
-            -s * 0.8, -s * 0.4,
-            -s * 0.6, s * 0.6,
-            0, s,
-            s * 0.6, s * 0.6,
-            s * 0.8, -s * 0.4
-        )
-
-        -- Outline for clarity
-        lg.setColor(0.1, 0.05, 0.05, 0.9)
-        lg.setLineWidth(2)
-        lg.polygon("line",
-            0, -s,
-            -s * 0.8, -s * 0.4,
-            -s * 0.6, s * 0.6,
-            0, s,
-            s * 0.6, s * 0.6,
-            s * 0.8, -s * 0.4
-        )
-
-        -- Cockpit dome (like an eye)
+        -- underside glow (engine / tractor glow)
         lg.setBlendMode("add")
-        lg.setColor(0.2, 1, 0.7, 0.5 + 0.3 * pulse)
-        lg.circle("fill", 0, -s * 0.2, s * 0.35 + 1.5 * pulse)
+        lg.setColor(0.15, 0.6, 1.0, 0.18 + 0.12 * pulse)
+        lg.ellipse("fill", 0, s * 0.6, s * 0.75, s * 0.28)
         lg.setBlendMode("alpha")
 
-        -- Thruster: rounded and soft
-        lg.setBlendMode("add")
-        local thrusterSize = s * (0.8 + 0.3 * sin(time * 10 + e.y))
-        lg.setColor(1, 0.5, 0.15, 0.6 + 0.2 * sin(time * 8 + e.x))
-        lg.circle("fill", 0, s * 0.9, thrusterSize * 0.5)
-        lg.setBlendMode("alpha")
+        -- outer rim (thick, metallic)
+        do
+            -- Rim color layered to give metallic feel
+            lg.setColor(0.08, 0.08, 0.09, 0.95)
+            lg.setLineWidth(2)
+            lg.ellipse("fill", 0, 0, s * 1.35, s * 0.38) -- wide flattened rim
 
-        -- Health/aggression indicator: cartoonish pulse ring
-        if e.health <= 1 then
+            -- Rim highlight top
             lg.setBlendMode("add")
-            lg.setColor(1, 0.2, 0.2, 0.35 + 0.25 * pulse)
-            lg.circle("line", 0, 0, s * 1.5 + 2 * sin(time * 6))
+            for i = 1, 3 do
+                local a = 0.08 / i
+                lg.setColor(1, 1, 1, a)
+                lg.ellipse("fill", 0, -s * 0.05 * i, s * 1.25 - i * 2, s * 0.28 - i * 0.04)
+            end
             lg.setBlendMode("alpha")
         end
 
+        -- lower hull (main disc)
+        do
+            lg.setColor(coreR * 0.8, coreG * 0.8, coreB * 0.9, 0.95)
+            lg.ellipse("fill", 0, s * 0.05, s * 1.0, s * 0.5)
+
+            -- painted rings / brushed metal using faint concentric ellipses
+            lg.setBlendMode("add")
+            for i = 1, 3 do
+                local ringScale = 1 - i * 0.12
+                local alpha = 0.06 + 0.03 * (i)
+                lg.setColor(coreR, coreG, coreB, alpha)
+                lg.ellipse("line", 0, s * 0.05, s * ringScale, s * 0.5 * ringScale)
+            end
+            lg.setBlendMode("alpha")
+        end
+
+        -- rotating segmented lights on the rim
+        do
+            local segments = max(8, floor(12 + s * 0.05))
+            local segRadius = s * 1.18
+            local segInner = s * 1.02
+            local spinOffset = spin * (e.x % 37) * 0.001
+
+            for i = 1, segments do
+                local a = (i / segments) * pi * 2 + spinOffset
+                local lx2 = cos(a) * segInner
+                local ly2 = sin(a) * segInner * 0.45
+
+                -- flicker intensity per segment using noise for variety
+                local segNoise = (noise(e.x * 0.02 + i * 0.1, time * 0.8) * 0.8) or 0.6
+                local intensity = 0.35 + 0.5 * segNoise + 0.2 * pulse
+
+                -- color alternates between cyan and warm amber
+                local isCyan = (i % 2 == 0)
+                if isCyan then
+                    lg.setColor(0.2, 0.9, 1.0, intensity)
+                else
+                    lg.setColor(1.0, 0.75, 0.25, intensity * 0.9)
+                end
+                lg.setBlendMode("add")
+                lg.rectangle("fill", lx2 - 2.5, ly2 - 2.5, 5, 5, 2, 2)
+                lg.setBlendMode("alpha")
+            end
+        end
+
+        -- spinning translucent inner ring (gives movement)
+        do
+            local ringSpin = spin * 1.7 + (e.y * 0.01)
+            lg.push()
+            lg.rotate(ringSpin)
+            lg.setBlendMode("add")
+            lg.setColor(0.35, 0.85, 1.0, 0.14 + 0.06 * pulse)
+            lg.ellipse("fill", 0, -s * 0.05, s * 0.55, s * 0.2)
+            lg.setBlendMode("alpha")
+            lg.pop()
+        end
+
+        -- cockpit dome (translucent glass, slightly forward)
+        do
+            local domeRadius = s * 0.35
+            local domeY = -s * 0.08
+            -- glass fill
+            lg.setBlendMode("add")
+            lg.setColor(0.25, 0.85, 0.95, 0.22 + 0.12 * pulse)
+            lg.circle("fill", 0, domeY, domeRadius)
+            lg.setBlendMode("alpha")
+
+            -- glass rim
+            lg.setColor(0, 0, 0, 0.35)
+            lg.setLineWidth(1)
+            lg.circle("line", 0, domeY, domeRadius)
+
+            -- highlight / sheen (multiple layered circles for soft highlight)
+            lg.setBlendMode("add")
+            lg.setColor(1, 1, 1, 0.12 + 0.08 * pulse)
+            lg.circle("fill", -domeRadius * 0.35, domeY - domeRadius * 0.35, domeRadius * 0.6)
+            lg.setBlendMode("alpha")
+        end
+
+        -- small mechanical details: vents and antenna
+        do
+            -- vents: small dark slits on top
+            lg.setColor(0.06, 0.06, 0.07, 0.9)
+            for i = -2, 2 do
+                local vx = i * s * 0.12
+                local vy = s * 0.02
+                lg.rectangle("fill", vx - s * 0.06, vy - 2, s * 0.12, 4, 2, 2)
+            end
+
+            -- tiny antenna/emitters: one forward and two rear
+            lg.setLineWidth(1.5)
+            lg.setColor(0.12, 0.12, 0.14, 0.95)
+            -- forward stalk
+            lg.line(0, -s * 0.35, 0, -s * 0.55)
+            lg.setBlendMode("add")
+            lg.circle("fill", 0, -s * 0.62, 3 + (abs(sin(time * 6 + e.x)) * 1.5))
+            lg.setBlendMode("alpha")
+        end
+
+        -- damage / health effect: cracks or ember glow near center when low health
+        if e.health <= 1 then
+            lg.setBlendMode("add")
+            lg.setColor(1, 0.22, 0.12, 0.45 + 0.15 * abs(sin(time * 12)))
+            lg.circle("fill", 0, s * 0.05, s * 0.28 + sin(time * 10) * 2)
+            lg.setBlendMode("alpha")
+        end
+
+        -- thin outline for readability
+        lg.setColor(0.06, 0.06, 0.06, 0.9)
         lg.setLineWidth(1)
+        lg.ellipse("line", 0, 0, s * 1.02, s * 0.48)
+
         lg.pop()
+        lg.setBlendMode("alpha")
     end
-    lg.setBlendMode("alpha")
 end
 
 function Enemy:reset()
