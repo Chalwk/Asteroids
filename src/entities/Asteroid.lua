@@ -11,13 +11,12 @@ local sin, cos, pi = math.sin, math.cos, math.pi
 local Asteroid = {}
 Asteroid.__index = Asteroid
 
+local sounds
 local TWO_PI = pi * 2
-
 local asteroidPool = {}
 local particlePool = {}
 
 local function getFromPool(pool) return #pool > 0 and remove(pool) or {} end
-
 local function returnToPool(pool, obj)
     for k in pairs(obj) do obj[k] = nil end
     insert(pool, obj)
@@ -42,7 +41,7 @@ function Asteroid.new(soundManager)
 
     instance.asteroids = {}
     instance.particles = {}
-    instance.soundManager = soundManager
+    sounds = soundManager
 
     return instance
 end
@@ -144,7 +143,7 @@ function Asteroid:update(dt, player)
         if player.invulnerable <= 0 and self:checkCollision(player, asteroid) then
             player.lives = player.lives - 1
             player.invulnerable = 2
-            --self.soundManager:play("asteroid_crash")
+            sounds:play("asteroid_explosion")
             return true -- collision occurred
         end
     end

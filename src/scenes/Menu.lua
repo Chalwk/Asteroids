@@ -2,8 +2,6 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
-local ipairs, sin = ipairs, math.sin
-
 local BUTTON_DATA = {
     MENU = {
         { text = "Engage Thrusters", action = "start",   width = 260, height = 55, color = { 0.7, 0.7, 0.7 } },
@@ -51,6 +49,7 @@ local HELP_TEXT = {
 }
 
 local lg = love.graphics
+local ipairs, sin = ipairs, math.sin
 
 local Menu = {}
 Menu.__index = Menu
@@ -387,7 +386,6 @@ function Menu:draw(state)
         drawPauseMenu(self)
     else
         drawGameTitle(self)
-
         if state == "menu" then
             if self.showHelp then
                 drawHelpOverlay(self)

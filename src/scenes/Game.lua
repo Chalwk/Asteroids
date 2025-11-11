@@ -11,21 +11,21 @@ local Environment = require("src.entities.Environment")
 local SoundManager = require("src.managers.SoundManager")
 local Player = require("src.entities.Player")
 
-local lg = love.graphics
+local sin, cos, pi, sqrt, floor = math.sin, math.cos, math.pi, math.sqrt, math.floor
 local random = love.math.random
 local insert = table.insert
-local sin, cos, pi, sqrt, floor = math.sin, math.cos, math.pi, math.sqrt, math.floor
-
-local Game = {}
-Game.__index = Game
+local lg = love.graphics
 
 local HALF_PI = pi * 0.5
 local TWO_PI = pi * 2
 local PLAYER_SPAWN_X, PLAYER_SPAWN_Y
 
-local asteroidManager, enemy, powerupManager, bulletManager
-local cometManager, environmentManager
-local soundManager
+local Game = {}
+Game.__index = Game
+
+local asteroidManager, cometManager
+local enemy, bulletManager, powerupManager
+local environmentManager, soundManager
 
 local function drawUI(self, time)
     lg.push()
@@ -169,7 +169,7 @@ function Game.new(fontManager)
     enemy = Enemy.new(instance.difficulty, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, soundManager)
     bulletManager = Bullet.new()
     cometManager = Comet.new(soundManager)
-    environmentManager = Environment.new(soundManager)
+    environmentManager = Environment.new()
 
     instance.player = Player.new(PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
 

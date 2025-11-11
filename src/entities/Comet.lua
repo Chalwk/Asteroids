@@ -4,19 +4,21 @@
 
 local lg = love.graphics
 local random = love.math.random
+
 local sin, cos = math.sin, math.cos
 local atan2 = math.atan2
 local sqrt = math.sqrt
 local pi = math.pi
 local insert, remove = table.insert, table.remove
 
+local sounds
 local Comet = {}
 Comet.__index = Comet
 
 function Comet.new(soundManager)
     local instance = setmetatable({}, Comet)
     instance.comets = {}
-    instance.soundManager = soundManager
+    sounds = soundManager
     instance.spawnInterval = 30
     instance.spawnTimer = instance.spawnInterval + random(-5, 5)
     return instance
@@ -80,7 +82,7 @@ function Comet:update(dt, player)
     if self.spawnTimer <= 0 then
         self.spawnTimer = self.spawnInterval + random(-5, 5) -- Add some randomness
         insert(self.comets, self:createComet())
-        self.soundManager:play("comet_spawn")
+        sounds:play("comet_spawn")
     end
 
     -- Update existing comets
@@ -133,7 +135,7 @@ function Comet:update(dt, player)
                 -- Insta-kill
                 player.lives = 0
                 player.health = 0
-                --self.soundManager:play("comet_collision")
+                --sounds:play("comet_collision")
                 remove(self.comets, i)
                 return true
             end

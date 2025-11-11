@@ -16,6 +16,7 @@ local abs = math.abs
 local Enemy = {}
 Enemy.__index = Enemy
 
+local sounds
 local enemyPool = {}
 local sparkPool = {}
 local HALF_PI = pi * 0.5
@@ -367,7 +368,7 @@ local function updateShooting(self, dt, enemy, player, bulletManager)
         bulletManager:create(enemy.x, enemy.y, vx, vy, 3, 4, true)
         enemy.shootCooldown = cooldown
 
-        self.soundManager:play("enemy_bullet")
+        sounds:play("enemy_bullet")
 
         -- Burst fire for higher difficulties
         if self.difficulty == "hard" and random() < 0.3 then
@@ -387,7 +388,7 @@ function Enemy.new(difficulty, playerSpawnX, playerSpawnY, soundManager)
     instance.spawnCooldown = 0
     instance.swarmCenter = { x = screenWidth / 2, y = screenHeight / 2 }
     instance.lastSwarmUpdate = 0
-    instance.soundManager = soundManager
+    sounds = soundManager
 
     return instance
 end

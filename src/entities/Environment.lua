@@ -224,12 +224,11 @@ end
 local Environment = {}
 Environment.__index = Environment
 
-function Environment.new(soundManager)
+function Environment.new()
     local instance = setmetatable({}, Environment)
     instance.nebulas = {}
     instance.blackholes = {}
     instance.stars = {}
-    instance.soundManager = soundManager
     instance.nebulaSpawnTimer = 0
     instance.blackholeSpawnTimer = 0
     instance.nebulaSpawnInterval = CONFIG.nebula.spawnInterval
@@ -278,7 +277,6 @@ function Environment:update(dt, player, asteroids, enemies)
 
             local inside = 1 - (distance / nebula.radius)
             fogFactor = max(fogFactor, inside * nebula.density)
-            --self.soundManager:setGlobalMuffle(fogFactor)
         end
 
         -- Fade out if life ended
