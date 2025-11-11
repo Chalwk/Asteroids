@@ -30,8 +30,8 @@ local CONFIG = {
 }
 
 local lg = love.graphics
-local random = love.math.random
 local noise = love.math.noise
+local random = love.math.random
 
 local ipairs = ipairs
 local pi = math.pi

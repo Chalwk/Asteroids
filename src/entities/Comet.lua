@@ -4,7 +4,6 @@
 
 local lg = love.graphics
 local random = love.math.random
-
 local sin, cos = math.sin, math.cos
 local atan2 = math.atan2
 local sqrt = math.sqrt
@@ -12,6 +11,7 @@ local pi = math.pi
 local insert, remove = table.insert, table.remove
 
 local sounds
+
 local Comet = {}
 Comet.__index = Comet
 

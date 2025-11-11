@@ -2,13 +2,13 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
-local Player = {}
-Player.__index = Player
-
 local lg = love.graphics
 local noise = love.math.noise
 local sin, cos, min, max = math.sin, math.cos, math.min, math.max
 local abs = math.abs
+
+local Player = {}
+Player.__index = Player
 
 function Player.new(x, y)
     local instance = setmetatable({}, Player)

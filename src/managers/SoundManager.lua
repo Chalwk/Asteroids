@@ -3,11 +3,10 @@
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
 local pairs = pairs
+local path = "assets/sounds/"
 
 local SoundManager = {}
 SoundManager.__index = SoundManager
-
-local path = "assets/sounds/"
 
 function SoundManager.new()
     local instance = setmetatable({

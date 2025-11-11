@@ -2,9 +2,9 @@
 -- License: MIT
 -- Copyright (c) 2025 Jericho Crosby (Chalwk)
 
-local font_path = "assets/fonts/segoe-ui-symbol.ttf"
 local lg = love.graphics
 local pairs = pairs
+local font_path = "assets/fonts/segoe-ui-symbol.ttf"
 
 local FontManager = {}
 FontManager.__index = FontManager

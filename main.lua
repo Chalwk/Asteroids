@@ -11,8 +11,8 @@ local game, menu, background, fonts
 local gameState = "menu"
 local stateTransition = { alpha = 0, duration = 0.5, timer = 0, active = false }
 
-local math_min = math.min
 local lg = love.graphics
+local math_min = math.min
 
 -- Globals for all classes
 screenWidth, screenHeight = 0, 0
