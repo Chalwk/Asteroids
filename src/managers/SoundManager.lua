@@ -7,13 +7,18 @@ local pairs = pairs
 local SoundManager = {}
 SoundManager.__index = SoundManager
 
+local path = "assets/sounds/"
+
 function SoundManager.new()
     local instance = setmetatable({
         sounds = {
-            player_bullet = love.audio.newSource("assets/sounds/laser-104024.mp3", "static"),
-            enemy_bullet = love.audio.newSource("assets/sounds/laser-312360.mp3", "static"),
-            ambience = love.audio.newSource("assets/sounds/ambient-soundscapes-004-space-atmosphere-303243.mp3", "stream"),
-            asteroid_explosion = love.audio.newSource("assets/sounds/explosion-312361.mp3", "static")
+            player_bullet = love.audio.newSource(path .. "laser-104024.mp3", "static"),
+            enemy_bullet = love.audio.newSource(path .. "laser-312360.mp3", "static"),
+            ambience = love.audio.newSource(path .. "ambient-soundscapes-004-space-atmosphere-303243.mp3", "stream"),
+            asteroid_explosion = love.audio.newSource(path .. "explosion-312361.mp3", "static"),
+            --nebula_spawn = love.audio.newSource(path .. "nebula_spawn.wav", "static"),
+            --blackhole_spawn = love.audio.newSource(path .. "blackhole_spawn.wav", "static"),
+            --blackhole_collision = love.audio.newSource(path .. "blackhole_collision.wav", "static"),
         }
     }, SoundManager)
 

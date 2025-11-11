@@ -7,6 +7,7 @@ local Asteroid = require("src.entities.Asteroid")
 local Powerup = require("src.entities.Powerup")
 local Bullet = require("src.entities.Bullet")
 local Comet = require("src.entities.Comet")
+local Environment = require("src.entities.Environment")
 local SoundManager = require("src.managers.SoundManager")
 
 local ipairs = ipairs
@@ -23,7 +24,7 @@ local TWO_PI = pi * 2
 local PLAYER_SPAWN_X, PLAYER_SPAWN_Y
 
 local asteroidManager, enemy, powerupManager, bulletManager
-local cometManager
+local cometManager, environmentManager
 local soundManager
 
 local function createPlayer(self)
@@ -47,26 +48,6 @@ local function createPlayer(self)
         score = 0,
         shootCooldown = 0
     }
-end
-
-local function createStarField(self)
-    -- layered starfield: slower layers in the distance, brighter ones close
-    self.stars = {}
-    for i = 1, 220 do
-        local layer = (i % 3) + 1
-        self.stars[i] = {
-            x = random(0, screenWidth),
-            y = random(0, screenHeight),
-            layer = layer,
-            size = layer == 1 and random(0.8, 1.2)
-                or layer == 2 and random(1.2, 2.0)
-                or random(2.0, 3.0),
-            brightness = layer == 1 and random(0.1, 0.3)
-                or layer == 2 and random(0.3, 0.6)
-                or random(0.6, 1.0),
-            twinkle = random() * 2
-        }
-    end
 end
 
 local function wrapPosition(obj, size)
@@ -255,35 +236,6 @@ local function drawPlayer(self, time)
     lg.setLineWidth(1)
 end
 
-
-local function drawStarField(self, time)
-    -- draw layered starfield with gentle parallax and twinkle
-    -- background haze
-    lg.setColor(0.02, 0.04, 0.08, 0.22)
-    lg.rectangle("fill", 0, 0, screenWidth, screenHeight)
-
-    for _, star in ipairs(self.stars) do
-        -- twinkle effect
-        local tw = star.brightness * (0.6 + 0.4 * sin(time * (0.6 + star.twinkle)))
-        local px = star.x
-        local py = star.y
-
-        -- parallax motion already applied in update; draw glow for larger stars
-        if star.size > 2.2 then
-            lg.setBlendMode("add")
-            lg.setColor(1, 1, 1, 0.06 * tw)
-            lg.circle("fill", px, py, star.size * 3.2)
-            lg.setColor(1, 1, 1, 0.12 * tw)
-            lg.circle("fill", px, py, star.size * 1.8)
-            lg.setBlendMode("alpha")
-        end
-
-        lg.setColor(1, 1, 1, 0.6 * tw)
-        lg.circle("fill", px, py, star.size)
-    end
-    lg.setBlendMode("alpha")
-end
-
 function Game.new(fontManager)
     local instance = setmetatable({}, Game)
 
@@ -305,9 +257,9 @@ function Game.new(fontManager)
     enemy = Enemy.new(instance.difficulty, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, soundManager)
     bulletManager = Bullet.new()
     cometManager = Comet.new(soundManager)
+    environmentManager = Environment.new(soundManager)
 
     createPlayer(instance)
-    createStarField(instance)
 
     asteroidManager:spawn(4 + instance.level, 1, PLAYER_SPAWN_X, PLAYER_SPAWN_Y)
 
@@ -320,10 +272,10 @@ function Game:isPaused() return self.paused end
 
 function Game:setPaused(paused) self.paused = paused end
 
-function Game:screenResize() createStarField(self) end
+function Game:screenResize() environmentManager:screenResize() end
 
 function Game:startNewGame(difficulty)
-    self.difficulty = difficulty or "medium"
+    self.difficulty = difficulty or "easy"
     self.gameOver = false
     self.won = false
     self.paused = false
@@ -333,6 +285,7 @@ function Game:startNewGame(difficulty)
     bulletManager:clear()
     powerupManager:clear()
     cometManager:clearAll()
+    environmentManager:clearAll()
 
     enemy:reset()
     enemy.difficulty = self.difficulty
@@ -511,20 +464,13 @@ function Game:update(dt)
         end
     end
 
-    -- Star field: parallax scrolling
-    local scrollSpeed = p.speed * dt
-    local moveX = sin(p.angle) * scrollSpeed
-    local moveY = -cos(p.angle) * scrollSpeed
+    local environmentDeath = environmentManager:update(dt, p,
+        asteroidManager:getAsteroids(),
+        enemy.enemies)
 
-    for _, star in ipairs(self.stars) do
-        local factor = star.layer == 1 and 0.15 or star.layer == 2 and 0.4 or 0.8
-        star.x = star.x - moveX * factor
-        star.y = star.y - moveY * factor
-
-        if star.x < 0 then star.x = star.x + screenWidth end
-        if star.x > screenWidth then star.x = star.x - screenWidth end
-        if star.y < 0 then star.y = star.y + screenHeight end
-        if star.y > screenHeight then star.y = star.y - screenHeight end
+    if environmentDeath then
+        self.gameOver = true
+        self.won = false
     end
 
     -- Update comets and check if player died from comet collision
@@ -546,7 +492,7 @@ end
 function Game:draw(time)
     lg.push()
 
-    drawStarField(self, time)
+    environmentManager:draw(time)
 
     asteroidManager:draw()
     cometManager:draw(time)
