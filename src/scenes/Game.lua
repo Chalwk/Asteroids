@@ -6,6 +6,7 @@ local Enemy = require("src.entities.Enemy")
 local Asteroid = require("src.entities.Asteroid")
 local Powerup = require("src.entities.Powerup")
 local Bullet = require("src.entities.Bullet")
+local Comet = require("src.entities.Comet")
 local SoundManager = require("src.managers.SoundManager")
 
 local ipairs = ipairs
@@ -22,6 +23,7 @@ local TWO_PI = pi * 2
 local PLAYER_SPAWN_X, PLAYER_SPAWN_Y
 
 local asteroidManager, enemy, powerupManager, bulletManager
+local cometManager
 local soundManager
 
 local function createPlayer(self)
@@ -302,6 +304,7 @@ function Game.new(fontManager)
     asteroidManager = Asteroid.new(soundManager)
     enemy = Enemy.new(instance.difficulty, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, soundManager)
     bulletManager = Bullet.new()
+    cometManager = Comet.new(soundManager)
 
     createPlayer(instance)
     createStarField(instance)
@@ -329,6 +332,7 @@ function Game:startNewGame(difficulty)
     asteroidManager:clearAll()
     bulletManager:clear()
     powerupManager:clear()
+    cometManager:clearAll()
 
     enemy:reset()
     enemy.difficulty = self.difficulty
@@ -523,8 +527,12 @@ function Game:update(dt)
         if star.y > screenHeight then star.y = star.y - screenHeight end
     end
 
-    -- Check level completion
-    if asteroidManager:isEmpty() and enemy:getCount() == 0 then
+    -- Update comets and check if player died from comet collision
+    local cometCollision = cometManager:update(dt, p)
+    if cometCollision then
+        self.gameOver = true
+        self.won = false
+    elseif asteroidManager:isEmpty() and enemy:getCount() == 0 then
         self.level = self.level + 1
         asteroidManager:spawn(4 + self.level, 1, self.player.x, self.player.y)
 
@@ -541,6 +549,7 @@ function Game:draw(time)
     drawStarField(self, time)
 
     asteroidManager:draw()
+    cometManager:draw(time)
     powerupManager:draw(time)
     enemy:draw(time)
 
