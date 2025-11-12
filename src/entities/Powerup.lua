@@ -4,7 +4,7 @@
 
 local lg = love.graphics
 local random = love.math.random
-local sin = math.sin
+local sin, cos, min = math.sin, math.cos, math.min
 local pairs, ipairs = pairs, ipairs
 local insert, remove = table.insert, table.remove
 
@@ -62,13 +62,30 @@ function Powerup:spawn(x, y)
     return powerup
 end
 
+function Powerup:checkCollision(a, b)
+    local minDist = (a.size or a.radius or 0) + (b.size or b.radius or 0)
+    local dx, dy = b.x - a.x, b.y - a.y
+    return dx * dx + dy * dy < minDist * minDist
+end
+
 function Powerup:update(dt, player)
     for i = #self.powerups, 1, -1 do
         local powerup = self.powerups[i]
         powerup.x = powerup.x + powerup.vx * dt
-        powerup.y = powerup.y + powerup.vy * dt
-        powerup.rotation = powerup.rotation + dt
+        powerup.y = powerup.y + powerup.vy * dt + sin(love.timer.getTime() * 2 + powerup.x) * dt * 5
         powerup.life = powerup.life - dt
+
+        if powerup.type == "boost" then
+            powerup.rotation = powerup.rotation + dt * 3
+        elseif powerup.type == "shield" then
+            powerup.rotation = powerup.rotation + dt * 1.2
+        elseif powerup.type == "rapid" then
+            powerup.rotation = powerup.rotation - dt * 4
+        elseif powerup.type == "health" then
+            powerup.rotation = powerup.rotation + dt * 2
+        else
+            powerup.rotation = powerup.rotation + dt
+        end
 
         wrapPosition(powerup)
 
@@ -84,7 +101,7 @@ function Powerup:update(dt, player)
             elseif powerup.type == "rapid" then
                 player.shootCooldown = 0.1
             elseif powerup.type == "health" then
-                player.health = math.min(player.maxHealth, player.health + 50)
+                player.health = min(player.maxHealth, player.health + 50)
             end
             returnToPool(powerupPool, powerup)
             remove(self.powerups, i)
@@ -94,25 +111,45 @@ function Powerup:update(dt, player)
     return false
 end
 
-function Powerup:checkCollision(a, b)
-    local minDist = (a.size or a.radius or 0) + (b.size or b.radius or 0)
-    local dx, dy = b.x - a.x, b.y - a.y
-    return dx * dx + dy * dy < minDist * minDist
-end
-
 function Powerup:draw(time)
     for _, powerup in ipairs(self.powerups) do
         lg.push()
         lg.translate(powerup.x, powerup.y)
         lg.rotate(powerup.rotation)
 
-        local pulse = 1 + 0.08 * sin(time * 6 + powerup.x * 0.01)
+        local pulse = 1 + 0.1 * sin(time * 4 + powerup.x * 0.02)
+        local glowPulse = 1 + 0.15 * sin(time * 3 + powerup.y * 0.02)
 
+        -- Outer glow
+        lg.setBlendMode("add")
+        if powerup.type == "boost" then
+            lg.setColor(0.3, 0.7, 1, 0.3)
+        elseif powerup.type == "shield" then
+            lg.setColor(0.2, 1, 0.6, 0.3)
+        elseif powerup.type == "rapid" then
+            lg.setColor(1, 0.5, 0.5, 0.3)
+        elseif powerup.type == "health" then
+            lg.setColor(1, 0.3, 0.3, 0.3)
+        end
+        lg.circle("fill", 0, 0, powerup.size * 1.5 * glowPulse)
+        lg.setBlendMode("alpha")
+
+        -- Sparkles orbiting the powerup
+        for j = 1, 3 do
+            local angle = time * (1 + j * 0.5) + powerup.x * 0.01
+            local r = powerup.size * 0.9 + 3 * sin(time * 5 + j)
+            local px = r * cos(angle)
+            local py = r * sin(angle)
+            lg.setColor(1, 1, 1, 0.6 + 0.4 * sin(time * 10 + j))
+            lg.points(px, py)
+        end
+
+        -- Main shape
         if powerup.type == "boost" then
             lg.setBlendMode("add")
             lg.setColor(0.15, 0.55, 1, 0.65)
-            lg.rectangle("fill", -powerup.size * 0.5 * pulse, -powerup.size * 0.5 * pulse, powerup.size * pulse,
-                powerup.size * pulse, 4)
+            lg.rectangle("fill", -powerup.size * 0.5 * pulse, -powerup.size * 0.5 * pulse,
+                powerup.size * pulse, powerup.size * pulse, 4)
             lg.setBlendMode("alpha")
             lg.setColor(0.2, 0.6, 1)
             lg.rectangle("line", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size, powerup.size, 3)
@@ -124,19 +161,14 @@ function Powerup:draw(time)
             lg.setColor(0.12, 1, 0.45)
             lg.circle("line", 0, 0, powerup.size)
         elseif powerup.type == "rapid" then
+            -- Comet-like shape
             lg.setBlendMode("add")
             lg.setColor(1, 0.35, 0.35, 0.6)
-            lg.polygon("fill",
-                -powerup.size * 0.5 * pulse,
-                -powerup.size * 0.5 * pulse, powerup.size * 0.5 * pulse,
-                0,
-                -powerup.size * 0.5 * pulse,
-                powerup.size * 0.5 * pulse
-            )
+            lg.ellipse("fill", -powerup.size * 0.2, 0, powerup.size * 0.8 * pulse, powerup.size * 0.4)
             lg.setBlendMode("alpha")
             lg.setColor(1, 0.3, 0.3)
-            lg.polygon("line", -powerup.size * 0.5, -powerup.size * 0.5, powerup.size * 0.5, 0, -powerup.size * 0.5,
-                powerup.size * 0.5)
+            lg.polygon("line", -powerup.size * 0.5, -powerup.size * 0.5,
+                powerup.size * 0.5, 0, -powerup.size * 0.5, powerup.size * 0.5)
         elseif powerup.type == "health" then
             lg.setBlendMode("add")
             lg.setColor(1, 0.2, 0.2, 0.65)
@@ -144,7 +176,6 @@ function Powerup:draw(time)
             lg.setBlendMode("alpha")
             lg.setColor(1, 0.3, 0.3)
             lg.circle("line", 0, 0, powerup.size * 0.8)
-            -- Plus sign inside
             lg.setColor(1, 1, 1, 0.9)
             lg.setLineWidth(3)
             lg.line(-powerup.size * 0.3, 0, powerup.size * 0.3, 0)
@@ -152,7 +183,6 @@ function Powerup:draw(time)
             lg.setLineWidth(1)
         end
 
-        lg.setColor(1, 1, 1, 0.9)
         lg.pop()
     end
 end
